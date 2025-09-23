@@ -210,10 +210,20 @@
           case 'KeyV':
             event.preventDefault();
             currentTool = 'select';
+            // Clear all selections when switching to select tool
+            selectedImageId = null;
+            selectedImageIndex = -1;
+            isImageSelected = false;
+            selectedSwatchIndex = -1;
             break;
           case 'KeyI':
             event.preventDefault();
             currentTool = 'eyedropper';
+            // Clear all selections when switching to eyedropper
+            selectedImageId = null;
+            selectedImageIndex = -1;
+            isImageSelected = false;
+            selectedSwatchIndex = -1;
             break;
           case 'KeyH':
             event.preventDefault();
@@ -1487,18 +1497,29 @@
     event.preventDefault();
     event.stopPropagation();
 
+    // Smart tool switching: if in eyedropper mode and clicking existing swatch, switch to select mode
+    if (currentTool === 'eyedropper') {
+      currentTool = 'select';
+      // Clear other selections but select this swatch
+      selectedImageId = null;
+      selectedImageIndex = -1;
+      isImageSelected = false;
+      selectedSwatchIndex = index;
+    }
+
     // Only allow swatch dragging when select tool is active
     if (currentTool !== 'select') {
       return;
     }
 
-    // Deselect any selected image when clicking on swatch
-    selectedImageId = null;
-    selectedImageIndex = -1;
-    isImageSelected = false;
-
-    // Select this swatch
-    selectedSwatchIndex = index;
+    // If we're here, we're in select mode (either originally or switched from eyedropper)
+    // Deselect any selected image when clicking on swatch (if not already done above)
+    if (currentTool === 'select' && selectedSwatchIndex !== index) {
+      selectedImageId = null;
+      selectedImageIndex = -1;
+      isImageSelected = false;
+      selectedSwatchIndex = index;
+    }
 
     isDragging = true;
     draggedSwatchIndex = index;
@@ -1835,7 +1856,14 @@
 
       <!-- Selection Tool -->
       <button
-        onclick={() => currentTool = 'select'}
+        onclick={() => {
+          currentTool = 'select';
+          // Clear all selections when switching to select tool
+          selectedImageId = null;
+          selectedImageIndex = -1;
+          isImageSelected = false;
+          selectedSwatchIndex = -1;
+        }}
         class="p-3 rounded-lg transition-all duration-200 {currentTool === 'select' ? 'bg-blue-100 text-blue-600 shadow-md' : 'text-gray-600 hover:bg-gray-100'}"
         title="Selection Tool - Press V (Click to select, drag to move, handles to resize)"
       >
@@ -1844,7 +1872,14 @@
 
       <!-- Eyedropper Tool -->
       <button
-        onclick={() => currentTool = 'eyedropper'}
+        onclick={() => {
+          currentTool = 'eyedropper';
+          // Clear all selections when switching to eyedropper
+          selectedImageId = null;
+          selectedImageIndex = -1;
+          isImageSelected = false;
+          selectedSwatchIndex = -1;
+        }}
         class="p-3 rounded-lg transition-all duration-200 {currentTool === 'eyedropper' ? 'bg-blue-100 text-blue-600 shadow-md' : 'text-gray-600 hover:bg-gray-100'}"
         title="Eyedropper Tool - Press I"
       >
