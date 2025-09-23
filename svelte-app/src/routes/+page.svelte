@@ -2,125 +2,99 @@
   import { onMount } from 'svelte';
   import { goto } from '$app/navigation';
 
-  let palettes = $state([]);
-  let showUploadModal = $state(false);
-  let uploadedFile = $state(null);
-  let uploading = $state(false);
+  let artboards = $state([]);
+  let showCreateModal = $state(false);
+  let creating = $state(false);
   let artboardWidth = $state(8.5);
   let artboardHeight = $state(11.0);
+  let artboardName = $state('');
   let showDeleteModal = $state(false);
-  let paletteToDelete = $state(null);
+  let artboardToDelete = $state(null);
 
-  async function loadPalettes() {
+  async function loadArtboards() {
     try {
-      const response = await fetch('/api/palettes');
+      const response = await fetch('/api/artboards');
       const data = await response.json();
       if (data.status === 'success') {
-        palettes = data.data;
+        artboards = data.data;
       }
     } catch (error) {
-      console.error('Error loading palettes:', error);
+      console.error('Error loading artboards:', error);
     }
   }
 
-  function openPalette(imageId) {
-    goto(`/palette/${imageId}`);
+  function openArtboard(artboardId) {
+    goto(`/artboard/${artboardId}`);
   }
 
-  function confirmDelete(palette) {
-    paletteToDelete = palette;
+  function confirmDelete(artboard) {
+    artboardToDelete = artboard;
     showDeleteModal = true;
   }
 
   function cancelDelete() {
     showDeleteModal = false;
-    paletteToDelete = null;
+    artboardToDelete = null;
   }
 
-  async function deletePalette() {
-    if (!paletteToDelete) return;
+  async function deleteArtboard() {
+    if (!artboardToDelete) return;
 
     try {
-      const response = await fetch(`/api/palettes/${paletteToDelete.image_id}`, {
+      const response = await fetch(`/api/artboards/${artboardToDelete.id}`, {
         method: 'DELETE'
       });
 
       const data = await response.json();
 
       if (data.status === 'success') {
-        // Remove the palette from the reactive state
-        palettes = palettes.filter(p => p.image_id !== paletteToDelete.image_id);
+        // Remove the artboard from the reactive state
+        artboards = artboards.filter(a => a.id !== artboardToDelete.id);
         showDeleteModal = false;
-        paletteToDelete = null;
+        artboardToDelete = null;
       } else {
-        alert('Failed to delete palette: ' + data.message);
+        alert('Failed to delete artboard: ' + data.message);
       }
     } catch (error) {
-      console.error('Error deleting palette:', error);
-      alert('Failed to delete palette');
+      console.error('Error deleting artboard:', error);
+      alert('Failed to delete artboard');
     }
   }
 
-  function handleFileSelect(event) {
-    const file = event.target.files[0];
-    if (file && file.type.startsWith('image/')) {
-      uploadedFile = file;
-    }
-  }
-
-  async function uploadImage() {
-    if (!uploadedFile) return;
-
-    uploading = true;
+  async function createArtboard() {
+    creating = true;
     try {
-      const formData = new FormData();
-      formData.append('image', uploadedFile);
-
-      const response = await fetch('/api/upload', {
+      const response = await fetch('/api/artboards', {
         method: 'POST',
-        body: formData
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name: artboardName || 'Untitled Artboard',
+          width_inches: artboardWidth,
+          height_inches: artboardHeight
+        })
       });
 
       const data = await response.json();
 
       if (data.status === 'success') {
-        // Create new palette entry
-        const paletteResponse = await fetch('/api/palettes', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            filename: data.filename,
-            artboard_width_inches: artboardWidth,
-            artboard_height_inches: artboardHeight
-          })
-        });
-
-        const paletteData = await paletteResponse.json();
-
-        if (paletteData.status === 'success') {
-          showUploadModal = false;
-          uploadedFile = null;
-          await loadPalettes();
-          goto(`/palette/${paletteData.image_id}`);
-        }
+        showCreateModal = false;
+        artboardName = '';
+        await loadArtboards();
+        goto(`/artboard/${data.artboard_id}`);
       } else {
-        alert('Upload failed: ' + data.message);
+        alert('Failed to create artboard: ' + data.message);
       }
     } catch (error) {
-      console.error('Upload error:', error);
-      alert('Upload failed');
+      console.error('Error creating artboard:', error);
+      alert('Failed to create artboard');
     } finally {
-      uploading = false;
+      creating = false;
     }
   }
 
-  function getPreviewColors(colorsString) {
-    if (!colorsString) return [];
-    return colorsString.split(',').slice(0, 4);
-  }
 
   onMount(() => {
-    loadPalettes();
+    loadArtboards();
   });
 </script>
 
@@ -147,11 +121,11 @@
         <!-- Logo/Brand (top right) -->
         <div class="flex items-center space-x-4">
           <button
-            onclick={() => showUploadModal = true}
+            onclick={() => showCreateModal = true}
             class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors duration-200 flex items-center space-x-2"
           >
             <i class="fas fa-plus"></i>
-            <span>New Palette</span>
+            <span>New Artboard</span>
           </button>
         </div>
       </div>
@@ -161,87 +135,68 @@
   <!-- Main Content -->
   <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
 
-    <!-- Palette Grid -->
-    {#if palettes.length === 0}
+    <!-- Artboard Grid -->
+    {#if artboards.length === 0}
       <div class="text-center py-12">
         <div class="bg-gray-100 rounded-full w-24 h-24 flex items-center justify-center mx-auto mb-4">
-          <i class="fas fa-images text-gray-400 text-3xl"></i>
+          <i class="fas fa-artstation text-gray-400 text-3xl"></i>
         </div>
-        <h3 class="text-lg font-medium text-gray-900 mb-2">No palettes yet</h3>
-        <p class="text-gray-600 mb-6">Upload your first image to start creating color palettes!</p>
+        <h3 class="text-lg font-medium text-gray-900 mb-2">No artboards yet</h3>
+        <p class="text-gray-600 mb-6">Create your first artboard to start organizing your color palettes!</p>
         <button
-          onclick={() => showUploadModal = true}
+          onclick={() => showCreateModal = true}
           class="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors duration-200 font-medium"
         >
           <i class="fas fa-plus mr-2"></i>
-          Create Your First Palette
+          Create Your First Artboard
         </button>
       </div>
     {:else}
       <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-        {#each palettes as palette (palette.image_id)}
+        {#each artboards as artboard (artboard.id)}
           <div
             class="group bg-white rounded-xl border border-gray-200 shadow-sm hover:shadow-lg transition-all duration-200 cursor-pointer overflow-hidden relative"
           >
-            <!-- Image Thumbnail -->
+            <!-- Artboard Preview -->
             <div
-              class="aspect-video bg-gray-100 relative overflow-hidden"
-              onclick={() => openPalette(palette.image_id)}
+              class="aspect-video bg-gradient-to-br from-blue-50 to-purple-50 relative overflow-hidden flex items-center justify-center"
+              onclick={() => openArtboard(artboard.id)}
             >
-              <img
-                src="/uploads/{palette.filename}"
-                alt={palette.original_name}
-                class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-200"
-                loading="lazy"
-              />
-              <div class="absolute inset-0 bg-gradient-to-t from-black/20 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-200"></div>
+              <div class="text-center">
+                <i class="fas fa-artstation text-gray-400 text-4xl mb-2"></i>
+                <p class="text-sm text-gray-600 font-medium">{artboard.width_inches}" × {artboard.height_inches}"</p>
+              </div>
+              <div class="absolute inset-0 bg-gradient-to-t from-black/10 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-200"></div>
 
               <!-- Delete Button -->
               <button
-                onclick={(e) => { e.stopPropagation(); confirmDelete(palette); }}
+                onclick={(e) => { e.stopPropagation(); confirmDelete(artboard); }}
                 class="absolute top-2 right-2 p-2 bg-red-500 text-white rounded-lg hover:bg-red-600 transition-all duration-200 opacity-0 group-hover:opacity-100 shadow-lg"
-                title="Delete palette"
+                title="Delete artboard"
               >
                 <i class="fas fa-trash text-sm"></i>
               </button>
             </div>
 
-            <!-- Palette Info -->
-            <div class="p-4" onclick={() => openPalette(palette.image_id)}>
-
-              <!-- Color Preview -->
-              {#if palette.preview_colors}
-                <div class="flex space-x-1 mb-3">
-                  {#each getPreviewColors(palette.preview_colors) as color}
-                    <div
-                      class="w-8 h-8 rounded border border-gray-200"
-                      style="background-color: {color}"
-                    ></div>
-                  {/each}
-                  {#if getPreviewColors(palette.preview_colors).length < 4}
-                    {#each Array(4 - getPreviewColors(palette.preview_colors).length) as _}
-                      <div class="w-8 h-8 rounded border border-gray-200 bg-gray-100"></div>
-                    {/each}
-                  {/if}
-                </div>
-              {:else}
-                <div class="flex space-x-1 mb-3">
-                  {#each Array(4) as _}
-                    <div class="w-8 h-8 rounded border border-gray-200 bg-gray-100"></div>
-                  {/each}
-                </div>
-              {/if}
+            <!-- Artboard Info -->
+            <div class="p-4" onclick={() => openArtboard(artboard.id)}>
+              <h3 class="font-medium text-gray-900 mb-2 truncate">{artboard.name}</h3>
 
               <!-- Metadata -->
               <div class="flex items-center justify-between text-sm text-gray-500">
                 <span class="flex items-center">
-                  <i class="fas fa-palette mr-1"></i>
-                  {palette.swatch_count || 0} colors
+                  <i class="fas fa-images mr-1"></i>
+                  {artboard.image_count || 0} images
                 </span>
                 <span class="flex items-center">
-                  <i class="fas fa-calendar mr-1"></i>
-                  {new Date(palette.upload_date).toLocaleDateString()}
+                  <i class="fas fa-palette mr-1"></i>
+                  {artboard.swatch_count || 0} swatches
                 </span>
+              </div>
+
+              <div class="mt-2 text-xs text-gray-400">
+                <i class="fas fa-calendar mr-1"></i>
+                {new Date(artboard.created_at).toLocaleDateString()}
               </div>
             </div>
 
@@ -252,15 +207,15 @@
   </main>
 </div>
 
-<!-- Upload Modal -->
-{#if showUploadModal}
+<!-- Create Artboard Modal -->
+{#if showCreateModal}
   <div class="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
     <div class="bg-white rounded-2xl shadow-2xl border border-gray-200 w-full max-w-md">
       <div class="p-6">
         <div class="flex items-center justify-between mb-6">
-          <h3 class="text-xl font-bold text-gray-900">Upload New Image</h3>
+          <h3 class="text-xl font-bold text-gray-900">Create New Artboard</h3>
           <button
-            onclick={() => { showUploadModal = false; uploadedFile = null; }}
+            onclick={() => { showCreateModal = false; artboardName = ''; }}
             class="text-gray-400 hover:text-gray-600 text-xl"
           >
             <i class="fas fa-times"></i>
@@ -268,41 +223,16 @@
         </div>
 
         <div class="space-y-4">
-          <!-- File Upload Area -->
-          <div class="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center hover:border-blue-400 transition-colors duration-200">
+          <!-- Artboard Name -->
+          <div>
+            <label class="block text-sm font-medium text-gray-700 mb-2">Artboard Name</label>
             <input
-              type="file"
-              accept="image/*"
-              onchange={handleFileSelect}
-              class="hidden"
-              id="file-upload"
+              type="text"
+              bind:value={artboardName}
+              placeholder="e.g., Logo Design, Brand Colors"
+              class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
             />
-            <label for="file-upload" class="cursor-pointer">
-              <div class="space-y-3">
-                <div class="bg-blue-100 rounded-full w-12 h-12 flex items-center justify-center mx-auto">
-                  <i class="fas fa-cloud-upload-alt text-blue-600 text-xl"></i>
-                </div>
-                <div>
-                  <p class="text-lg font-medium text-gray-900">Choose image file</p>
-                  <p class="text-sm text-gray-600">PNG, JPG, GIF up to 15MB</p>
-                </div>
-              </div>
-            </label>
           </div>
-
-          {#if uploadedFile}
-            <div class="bg-gray-50 rounded-lg p-4">
-              <div class="flex items-center space-x-3">
-                <div class="bg-green-100 p-2 rounded">
-                  <i class="fas fa-file-image text-green-600"></i>
-                </div>
-                <div class="flex-1">
-                  <p class="font-medium text-gray-900">{uploadedFile.name}</p>
-                  <p class="text-sm text-gray-600">{(uploadedFile.size / 1024 / 1024).toFixed(2)} MB</p>
-                </div>
-              </div>
-            </div>
-          {/if}
 
           <!-- Artboard Size Selection -->
           <div class="space-y-4">
@@ -367,18 +297,18 @@
             </div>
           </div>
 
-          <!-- Upload Button -->
+          <!-- Create Button -->
           <button
-            onclick={uploadImage}
-            disabled={!uploadedFile || uploading}
+            onclick={createArtboard}
+            disabled={creating}
             class="w-full px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors duration-200 font-medium disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            {#if uploading}
+            {#if creating}
               <i class="fas fa-spinner fa-spin mr-2"></i>
-              Uploading...
+              Creating...
             {:else}
-              <i class="fas fa-upload mr-2"></i>
-              Create Palette
+              <i class="fas fa-plus mr-2"></i>
+              Create Artboard
             {/if}
           </button>
         </div>
@@ -388,7 +318,7 @@
 {/if}
 
 <!-- Delete Confirmation Modal -->
-{#if showDeleteModal && paletteToDelete}
+{#if showDeleteModal && artboardToDelete}
   <div class="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
     <div class="bg-white rounded-2xl shadow-2xl border border-gray-200 w-full max-w-md">
       <div class="p-6">
@@ -397,17 +327,17 @@
           <div class="bg-red-100 p-2 rounded-full">
             <i class="fas fa-exclamation-triangle text-red-600 text-xl"></i>
           </div>
-          <h3 class="text-xl font-bold text-gray-900">Delete Palette</h3>
+          <h3 class="text-xl font-bold text-gray-900">Delete Artboard</h3>
         </div>
 
         <!-- Content -->
         <div class="mb-6">
           <p class="text-gray-600 mb-4">
-            Are you sure you want to delete this palette?
+            Are you sure you want to delete this artboard?
           </p>
           <p class="text-sm text-red-600">
             <i class="fas fa-warning mr-1"></i>
-            This action cannot be undone. All color swatches associated with this palette will also be deleted.
+            This action cannot be undone. All images and color swatches on this artboard will also be deleted.
           </p>
         </div>
 
@@ -420,7 +350,7 @@
             Cancel
           </button>
           <button
-            onclick={deletePalette}
+            onclick={deleteArtboard}
             class="flex-1 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors duration-200 font-medium"
           >
             <i class="fas fa-trash mr-2"></i>

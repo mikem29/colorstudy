@@ -21,6 +21,10 @@ dist/
 # OS files
 .DS_Store
 Thumbs.db
+# Apple resource forks
+._*
+.AppleDouble
+.LSOverride
 
 # Logs
 npm-debug.log*

@@ -1,7 +1,41 @@
 <script>
   import { onMount } from 'svelte';
 
-  let { loadSavedSwatches, imageSrc = '/dunes.png', imageId = null } = $props();
+  let {
+    loadSavedSwatches,
+    imageSrc = '/dunes.png',
+    imageId = null,
+    artboardId,
+    artboardWidth,
+    artboardHeight,
+    existingImages = [],
+    existingSwatches = [],
+    enableMultipleImages = false,
+    onSwatchCreated,
+    onImageUpload
+  } = $props();
+
+  // Multiple images support
+  let artboardImages = $state([]);
+  let selectedImageId = $state(null);
+  let selectedImageIndex = $state(-1);
+
+  // Throttle validation error messages to prevent console flooding
+  let lastValidationLogTime = 0;
+  const VALIDATION_LOG_THROTTLE = 1000; // Only log validation errors once per second
+
+  // Helper function to throttle validation error messages
+  function throttledValidationLog(message, ...args) {
+    const now = Date.now();
+    if (now - lastValidationLogTime > VALIDATION_LOG_THROTTLE) {
+      console.error(message, ...args);
+      lastValidationLogTime = now;
+    }
+  }
+
+  // Throttle resize operations to improve performance
+  let lastResizeTime = 0;
+  const RESIZE_THROTTLE = 16; // ~60fps (16ms between updates)
 
   const version = 'Version 3.3 - Svelte 5';
 
@@ -30,6 +64,10 @@
 
   // Tool system
   let currentTool = $state('select'); // 'select', 'eyedropper', 'hand', 'zoom'
+  let placementMode = $state(false);
+  let pendingImageData = $state(null);
+  let placementPreviewX = $state(0);
+  let placementPreviewY = $state(0);
   let zoomLevel = $state(1);
   let panX = $state(0);
   let panY = $state(0);
@@ -50,6 +88,7 @@
   let imageDragStart = $state({ x: 0, y: 0 });
   let resizeStart = $state({ x: 0, y: 0, width: 0, height: 0 });
   let resizeHandle = $state(''); // 'nw', 'ne', 'sw', 'se', 'n', 'e', 's', 'w'
+  let resizeUpdateTimeout = null;
 
   let samplingSize = $state(1);
   let colorFormat = $state('RGB');
@@ -76,10 +115,48 @@
   let overlayCanvas;
   let ctx;
   let overlayCtx;
+  let imageCanvases = new Map(); // Map of imageId -> canvas element
   let colorPreview;
 
   onMount(() => {
-    console.log('Loading image from:', imageSrc);
+    // Initialize artboard images from existing images
+    if (enableMultipleImages && existingImages.length > 0) {
+      artboardImages = existingImages.map(img => ({
+        id: img.id,
+        src: `/${img.file_path}`,
+        x: img.image_x || 0,
+        y: img.image_y || 0,
+        width: img.image_width || 400,
+        height: img.image_height || 300,
+        originalWidth: img.image_width || 400, // Will be updated when actual image loads
+        originalHeight: img.image_height || 300, // Will be updated when actual image loads
+        filename: img.file_path,
+        needsOriginalDimensions: true // Flag to load actual dimensions
+      }));
+
+      // Load actual original dimensions for each image
+      artboardImages.forEach(async (imageData, index) => {
+        const img = new Image();
+        img.onload = () => {
+          // Update with actual original dimensions
+          const updatedImages = [...artboardImages];
+          updatedImages[index] = {
+            ...updatedImages[index],
+            originalWidth: img.naturalWidth,
+            originalHeight: img.naturalHeight,
+            needsOriginalDimensions: false
+          };
+          artboardImages = updatedImages;
+        };
+        img.src = imageData.src;
+      });
+
+      // Auto-select the first image
+      if (artboardImages.length > 0) {
+        selectedImageId = artboardImages[0].id;
+        selectedImageIndex = 0;
+      }
+    }
 
     // Load artboard data and saved swatches for this image
     loadArtboardData();
@@ -91,6 +168,11 @@
 
     // Add keyboard event listeners for alt key and spacebar detection
     const handleKeyDown = (event) => {
+      // Skip all keyboard shortcuts when modal is open
+      if (showModal) {
+        return;
+      }
+
       if (event.altKey) {
         isAltPressed = true;
       }
@@ -138,6 +220,11 @@
     };
 
     const handleKeyUp = (event) => {
+      // Skip all keyboard shortcuts when modal is open
+      if (showModal) {
+        return;
+      }
+
       if (!event.altKey) {
         isAltPressed = false;
       }
@@ -159,32 +246,35 @@
     document.addEventListener('keydown', handleKeyDown);
     document.addEventListener('keyup', handleKeyUp);
 
-    const img = new Image();
-    img.crossOrigin = 'Anonymous';
+    // Only load the single image if we're NOT in multiple images mode
+    if (!enableMultipleImages) {
+      const img = new Image();
+      img.crossOrigin = 'Anonymous';
 
-    img.onerror = function() {
-      console.error('Failed to load image:', imageSrc);
-      // Try without crossOrigin
-      const img2 = new Image();
-      img2.src = imageSrc;
+      img.onerror = function() {
+        console.error('Failed to load image:', imageSrc);
+        // Try without crossOrigin
+        const img2 = new Image();
+        img2.src = imageSrc;
 
-      img2.onload = function() {
-        loadImageToCanvas(img2);
+        img2.onload = function() {
+          loadImageToCanvas(img2);
+        };
+
+        img2.onerror = function() {
+          console.error('Failed to load image even without CORS:', imageSrc);
+          // Initialize canvas with fallback size
+          initializeEmptyCanvas();
+        };
       };
 
-      img2.onerror = function() {
-        console.error('Failed to load image even without CORS:', imageSrc);
-        // Initialize canvas with fallback size
-        initializeEmptyCanvas();
+      img.onload = function() {
+        console.log('Image loaded successfully');
+        loadImageToCanvas(img);
       };
-    };
 
-    img.onload = function() {
-      console.log('Image loaded successfully');
-      loadImageToCanvas(img);
-    };
-
-    img.src = imageSrc;
+      img.src = imageSrc;
+    }
 
     // Return cleanup function
     return () => {
@@ -196,42 +286,60 @@
   });
 
   function loadImageToCanvas(img) {
-    // Get container width (assuming max width of container)
-    const containerWidth = canvas.parentElement.offsetWidth || 800;
-    const maxWidth = Math.min(containerWidth, 1200); // Max width of 1200px
+    // For the new multiple image system, we mainly need to set up the primary canvas
+    // if it exists (for the first image) to support eyedropper functionality
+    if (!canvas) {
+      console.log('No canvas available, skipping canvas setup');
+      return;
+    }
 
-    // Calculate scaled dimensions maintaining aspect ratio
-    const aspectRatio = img.height / img.width;
-    const scaledWidth = Math.min(img.width, maxWidth);
-    const scaledHeight = scaledWidth * aspectRatio;
+    try {
+      // Get container width (assuming max width of container)
+      const containerWidth = canvas.parentElement?.offsetWidth || 800;
+      const maxWidth = Math.min(containerWidth, 1200); // Max width of 1200px
 
-    canvas.width = scaledWidth;
-    canvas.height = scaledHeight;
-    overlayCanvas.width = scaledWidth;
-    overlayCanvas.height = scaledHeight;
+      // Calculate scaled dimensions maintaining aspect ratio
+      const aspectRatio = img.height / img.width;
+      const scaledWidth = Math.min(img.width, maxWidth);
+      const scaledHeight = scaledWidth * aspectRatio;
 
-    // Set CSS size to match canvas size
-    canvas.style.width = scaledWidth + 'px';
-    canvas.style.height = scaledHeight + 'px';
-    overlayCanvas.style.width = scaledWidth + 'px';
-    overlayCanvas.style.height = scaledHeight + 'px';
+      canvas.width = scaledWidth;
+      canvas.height = scaledHeight;
 
-    imageWidth = scaledWidth;
-    imageHeight = scaledHeight;
+      if (overlayCanvas) {
+        overlayCanvas.width = scaledWidth;
+        overlayCanvas.height = scaledHeight;
+        overlayCanvas.style.width = scaledWidth + 'px';
+        overlayCanvas.style.height = scaledHeight + 'px';
+      }
 
-    // Initialize display dimensions to match canvas if not already set
-    if (!imageDisplayWidth) imageDisplayWidth = scaledWidth;
-    if (!imageDisplayHeight) imageDisplayHeight = scaledHeight;
+      imageWidth = scaledWidth;
+      imageHeight = scaledHeight;
 
-    ctx = canvas.getContext('2d');
-    overlayCtx = overlayCanvas.getContext('2d');
-    ctx.drawImage(img, 0, 0, scaledWidth, scaledHeight);
+      // Initialize display dimensions to match canvas if not already set
+      if (!imageDisplayWidth) imageDisplayWidth = scaledWidth;
+      if (!imageDisplayHeight) imageDisplayHeight = scaledHeight;
 
-    createPlaceholders();
+      ctx = canvas.getContext('2d');
+      if (overlayCanvas) {
+        overlayCtx = overlayCanvas.getContext('2d');
+      }
+      ctx.drawImage(img, 0, 0, scaledWidth, scaledHeight);
+
+      createPlaceholders();
+
+      console.log('Canvas updated:', scaledWidth, 'x', scaledHeight);
+    } catch (error) {
+      console.error('Error loading image to canvas:', error);
+    }
   }
 
   function initializeEmptyCanvas() {
-    const containerWidth = canvas.parentElement.offsetWidth || 800;
+    if (!canvas) {
+      console.log('No canvas available for initialization');
+      return;
+    }
+    const containerWidth = canvas.parentElement?.offsetWidth || 800;
     const canvasWidth = Math.min(containerWidth, 800);
     const canvasHeight = 400;
 
@@ -337,7 +445,8 @@
     // Don't trigger actions if we're dragging a swatch or manipulating image
     if (isDragging || isDraggingImage || isResizingImage) return;
 
-    const rect = canvas.getBoundingClientRect();
+    // Get coordinates from the img element that was clicked
+    const rect = event.target.getBoundingClientRect();
     const x = Math.floor(event.clientX - rect.left);
     const y = Math.floor(event.clientY - rect.top);
 
@@ -356,6 +465,9 @@
         // Select the image when clicked
         isImageSelected = true;
         break;
+      case 'place':
+        handleImagePlacement(event);
+        break;
       default:
         // Default to eyedropper behavior for backward compatibility
         handleEyedropperClick(x, y);
@@ -363,17 +475,44 @@
   }
 
   function handleEyedropperClick(x, y) {
-    // Use the same scaling logic as mouse move
-    const cssWidth = imageDisplayWidth || imageWidth;
-    const cssHeight = imageDisplayHeight || imageHeight;
+    // For multiple images, we need to work with the selected image
+    if (!selectedImageId) {
+      console.log('No image selected for eyedropper');
+      return;
+    }
 
-    const scaleX = canvas.width / cssWidth;
-    const scaleY = canvas.height / cssHeight;
+    const selectedImage = getSelectedImage();
+    if (!selectedImage) {
+      console.log('Selected image not found');
+      return;
+    }
 
-    const canvasX = x * scaleX;
-    const canvasY = y * scaleY;
+    // Get the canvas element for the selected image
+    const selectedCanvas = imageCanvases.get(selectedImageId);
+    if (!selectedCanvas) {
+      console.log('Canvas not found for selected image');
+      return;
+    }
 
-    const { red, green, blue } = getAverageColor(ctx, canvasX, canvasY, samplingSize);
+    const selectedCtx = selectedCanvas.getContext('2d');
+    if (!selectedCtx) {
+      console.log('Cannot get canvas context for selected image');
+      return;
+    }
+
+    // Scale coordinates from displayed image size to canvas size
+    const scaleX = selectedCanvas.width / selectedImage.width;
+    const scaleY = selectedCanvas.height / selectedImage.height;
+    const canvasX = Math.floor(x * scaleX);
+    const canvasY = Math.floor(y * scaleY);
+
+    // Make sure coordinates are within canvas bounds
+    if (canvasX < 0 || canvasX >= selectedCanvas.width || canvasY < 0 || canvasY >= selectedCanvas.height) {
+      console.log('Click coordinates outside canvas bounds');
+      return;
+    }
+
+    const { red, green, blue } = getAverageColor(selectedCtx, canvasX, canvasY, samplingSize);
     const hexColor = rgbToHex(red, green, blue);
 
     // Calculate default position for new swatch (artboard-relative)
@@ -403,6 +542,151 @@
     }
   }
 
+  function selectImage(imageId, index) {
+    selectedImageId = imageId;
+    selectedImageIndex = index;
+    console.log('Selected image:', imageId, 'at index:', index);
+  }
+
+  function getSelectedImage() {
+    return artboardImages.find(img => img.id === selectedImageId);
+  }
+
+  // Action to draw image data onto canvas for eyedropper functionality
+  function drawImageOnCanvas(canvas, image) {
+    let currentImage = null;
+    let isLoaded = false;
+
+    function loadAndDrawImage() {
+      // Validate dimensions before setting
+      if (!image.width || !image.height || image.width <= 0 || image.height <= 0 ||
+          image.width === null || image.height === null ||
+          isNaN(image.width) || isNaN(image.height)) {
+        console.error('Invalid image dimensions:', image.width, 'x', image.height);
+        return;
+      }
+
+      // Set canvas internal dimensions to original image size for crisp rendering
+      const originalWidth = image.originalWidth || image.width;
+      const originalHeight = image.originalHeight || image.height;
+
+      canvas.width = originalWidth;
+      canvas.height = originalHeight;
+
+      // Set display size via CSS
+      canvas.style.width = image.width + 'px';
+      canvas.style.height = image.height + 'px';
+
+      // Only reload image if source changed or not yet loaded
+      if (!isLoaded || currentImage?.src !== image.src) {
+        const img = new Image();
+        img.crossOrigin = 'anonymous';
+
+        img.onload = function() {
+          const ctx = canvas.getContext('2d');
+          ctx.clearRect(0, 0, canvas.width, canvas.height);
+          ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+
+          // Store canvas reference for this image
+          imageCanvases.set(image.id, canvas);
+          currentImage = { src: image.src, width: image.width, height: image.height };
+          isLoaded = true;
+        };
+
+        img.onerror = function() {
+          console.error('Failed to load image for canvas:', image.src);
+        };
+
+        img.src = image.src;
+      } else {
+        // Just update display size without reloading image
+        canvas.style.width = image.width + 'px';
+        canvas.style.height = image.height + 'px';
+      }
+    }
+
+    // Initial load
+    loadAndDrawImage();
+
+    return {
+      update(newImage) {
+        image = newImage; // Update the reference
+        loadAndDrawImage();
+      },
+      destroy() {
+        imageCanvases.delete(image.id);
+      }
+    };
+  }
+
+  async function handleImagePlacement(event) {
+    if (!placementMode || !pendingImageData) return;
+
+    try {
+      // Get placement coordinates relative to artboard
+      const artboardRect = document.querySelector('.artboard')?.getBoundingClientRect();
+      if (!artboardRect) return;
+
+      const placeX = event.clientX - artboardRect.left;
+      const placeY = event.clientY - artboardRect.top;
+
+      // Create new image object for the artboard
+      const newImage = {
+        id: Date.now(), // Temporary ID
+        src: pendingImageData.url,
+        x: placeX, // Top-left corner at cursor position
+        y: placeY,
+        width: pendingImageData.originalWidth, // Full resolution
+        height: pendingImageData.originalHeight,
+        originalWidth: pendingImageData.originalWidth,
+        originalHeight: pendingImageData.originalHeight,
+        filename: pendingImageData.filename
+      };
+
+      // Save to database via artboard API
+      if (artboardId) {
+        const response = await fetch(`/api/artboards/${artboardId}`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            filename: pendingImageData.filename,
+            image_x: newImage.x,
+            image_y: newImage.y,
+            image_width: newImage.width,
+            image_height: newImage.height
+          })
+        });
+
+        const result = await response.json();
+        if (result.status === 'success') {
+          // Update the image with the real database ID
+          newImage.id = result.image_id;
+          console.log('Image saved to database with ID:', result.image_id);
+        } else {
+          console.error('Failed to save image to database:', result.message);
+        }
+      }
+
+      // Add to artboard images array
+      artboardImages = [...artboardImages, newImage];
+
+      // Auto-select the newly placed image
+      selectedImageId = newImage.id;
+      selectedImageIndex = artboardImages.length - 1;
+
+      // Exit placement mode
+      placementMode = false;
+      pendingImageData = null;
+      currentTool = 'select';
+
+      console.log('Added new image to artboard:', newImage);
+      console.log('Total images on artboard:', artboardImages.length);
+
+    } catch (error) {
+      console.error('Error placing image:', error);
+    }
+  }
+
   function setZoomLevel(level) {
     zoomLevel = level;
     showZoomDropdown = false;
@@ -420,30 +704,16 @@
         panY = event.clientY;
         break;
       case 'select':
-        // Select the image if not already selected
-        if (!isImageSelected) {
-          isImageSelected = true;
-        }
-
-        // Check if clicking on a resize handle (when image is selected)
-        if (isImageSelected) {
-          const handle = getResizeHandle(x, y);
-          if (handle) {
-            isResizingImage = true;
-            resizeHandle = handle;
-            resizeStart = {
-              x: imageX,
-              y: imageY,
-              mouseX: event.clientX,
-              mouseY: event.clientY,
-              width: imageDisplayWidth || imageWidth,
-              height: imageDisplayHeight || imageHeight
-            };
-          } else {
-            // If not on a resize handle, start dragging the image for repositioning
-            isDraggingImage = true;
-            imageDragStart = { x: event.clientX - imageX, y: event.clientY - imageY };
-          }
+        // Check if we have a selected image to work with
+        const selectedImage = getSelectedImage();
+        if (selectedImage) {
+          // For dragging, we need to calculate the offset from the click point to the image position
+          // Since the click is on the image canvas, we need to account for the image's position on the artboard
+          isDraggingImage = true;
+          imageDragStart = {
+            x: event.clientX - selectedImage.x,
+            y: event.clientY - selectedImage.y
+          };
         }
         break;
     }
@@ -470,51 +740,87 @@
     return null;
   }
 
-  function handleResizeMouseDown(event, handle) {
+  function handleResizeMouseDown(event, handle, image) {
     event.preventDefault();
     event.stopPropagation();
+
+    // Ensure the image is selected
+    selectImage(image.id, artboardImages.findIndex(img => img.id === image.id));
 
     isResizingImage = true;
     resizeHandle = handle;
     resizeStart = {
-      x: imageX,
-      y: imageY,
+      x: image.x,
+      y: image.y,
       mouseX: event.clientX,
       mouseY: event.clientY,
-      width: imageDisplayWidth || imageWidth,
-      height: imageDisplayHeight || imageHeight
+      width: image.width,
+      height: image.height,
+      imageId: image.id
     };
   }
 
   async function saveImagePosition() {
-    if (!imageId) return;
+    if (!selectedImageId) {
+      console.log('No selected image to save position for');
+      return;
+    }
+
+    const selectedImage = getSelectedImage();
+    if (!selectedImage) {
+      console.log('Selected image not found');
+      return;
+    }
 
     try {
-      const response = await fetch(`/api/palettes/${imageId}`, {
+      const response = await fetch(`/api/palettes/${selectedImageId}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          image_x: imageX,
-          image_y: imageY
+          image_x: selectedImage.x,
+          image_y: selectedImage.y
         })
       });
+
+      const result = await response.json();
+      if (result.status === 'success') {
+        console.log('Image position saved successfully');
+      } else {
+        console.error('Failed to save image position:', result.message);
+      }
     } catch (error) {
       console.error('Error saving image position:', error);
     }
   }
 
   async function saveImageSize() {
-    if (!imageId) return;
+    if (!selectedImageId) {
+      console.log('No selected image to save size for');
+      return;
+    }
+
+    const selectedImage = getSelectedImage();
+    if (!selectedImage) {
+      console.log('Selected image not found');
+      return;
+    }
 
     try {
-      const response = await fetch(`/api/palettes/${imageId}`, {
+      const response = await fetch(`/api/palettes/${selectedImageId}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          image_width: imageDisplayWidth,
-          image_height: imageDisplayHeight
+          image_width: selectedImage.width,
+          image_height: selectedImage.height
         })
       });
+
+      const result = await response.json();
+      if (result.status === 'success') {
+        console.log('Image size saved successfully');
+      } else {
+        console.error('Failed to save image size:', result.message);
+      }
     } catch (error) {
       console.error('Error saving image size:', error);
     }
@@ -522,30 +828,61 @@
 
   function onCanvasMouseMove(event) {
     // Don't show color preview or sampling indicator when dragging
-    if (isDragging || !overlayCtx) return;
+    if (isDragging) return;
 
-    overlayCtx.clearRect(0, 0, overlayCanvas.width, overlayCanvas.height);
+    // Clear overlay if it exists (overlay canvas removed to eliminate artifacts)
+    if (overlayCtx && overlayCanvas) {
+      overlayCtx.clearRect(0, 0, overlayCanvas.width, overlayCanvas.height);
+    }
 
-    const rect = canvas.getBoundingClientRect();
+    // Get the rect from the actual target canvas, not the global canvas
+    const targetCanvas = event.currentTarget;
+    const rect = targetCanvas.getBoundingClientRect();
     const x = Math.floor(event.clientX - rect.left);
     const y = Math.floor(event.clientY - rect.top);
 
     // Only show color preview and sampling for eyedropper tool
     if (currentTool === 'eyedropper') {
+      // For multiple images, work with the selected image
+      if (!selectedImageId) {
+        // No image selected, just clear the preview
+        updateToolbarColorPreview('#000000', 0, 0, 0);
+        return;
+      }
+
+      const selectedImage = getSelectedImage();
+      if (!selectedImage) {
+        updateToolbarColorPreview('#000000', 0, 0, 0);
+        return;
+      }
+
+      // Get the canvas for the selected image
+      const selectedCanvas = imageCanvases.get(selectedImageId);
+      if (!selectedCanvas) {
+        updateToolbarColorPreview('#000000', 0, 0, 0);
+        return;
+      }
+
+      const selectedCtx = selectedCanvas.getContext('2d');
+      if (!selectedCtx) {
+        updateToolbarColorPreview('#000000', 0, 0, 0);
+        return;
+      }
+
       // Account for zoom by using actual displayed canvas size
       const displayedCanvasWidth = rect.width;
       const displayedCanvasHeight = rect.height;
 
       // Scale from displayed canvas coordinates to internal canvas coordinates
-      const scaleX = canvas.width / displayedCanvasWidth;
-      const scaleY = canvas.height / displayedCanvasHeight;
+      const scaleX = selectedCanvas.width / displayedCanvasWidth;
+      const scaleY = selectedCanvas.height / displayedCanvasHeight;
 
       const canvasX = x * scaleX;
       const canvasY = y * scaleY;
 
       // Make sure we're within canvas bounds
-      if (canvasX >= 0 && canvasX < canvas.width && canvasY >= 0 && canvasY < canvas.height) {
-        const { red, green, blue } = getAverageColor(ctx, canvasX, canvasY, samplingSize);
+      if (canvasX >= 0 && canvasX < selectedCanvas.width && canvasY >= 0 && canvasY < selectedCanvas.height) {
+        const { red, green, blue } = getAverageColor(selectedCtx, canvasX, canvasY, samplingSize);
         const hexColor = rgbToHex(red, green, blue);
 
         // Show preview window but no floating icon - use crosshair cursor
@@ -553,8 +890,9 @@
         eyedropperY = event.clientY;
         showEyedropper = true;
 
-
         updateToolbarColorPreview(hexColor, red, green, blue);
+      } else {
+        updateToolbarColorPreview('#000000', 0, 0, 0);
       }
     }
   }
@@ -579,18 +917,24 @@
       case 'eyedropper': return 'cursor-crosshair'; // Use native crosshair cursor
       case 'hand': return isPanning ? 'cursor-grabbing' : 'cursor-grab';
       case 'zoom': return (isAltPressed || zoomMode === 'out') ? 'cursor-zoom-out' : 'cursor-zoom-in';
+      case 'place': return 'cursor-crosshair';
+      case 'upload': return 'cursor-default';
       default: return 'cursor-default';
     }
   }
 
   function onCanvasMouseLeave() {
-    if (overlayCtx) {
+    if (overlayCtx && overlayCanvas) {
       overlayCtx.clearRect(0, 0, overlayCanvas.width, overlayCanvas.height);
     }
     showEyedropper = false;
   }
 
   function drawSamplingIndicator(x, y) {
+    // Sampling indicator disabled to eliminate overlay artifacts
+    // Visual feedback now provided through cursor and toolbar preview
+    if (!overlayCtx || !overlayCanvas) return;
+
     overlayCtx.strokeStyle = 'rgba(0, 0, 0, 0.8)';
     overlayCtx.lineWidth = 1;
 
@@ -791,6 +1135,53 @@
     }
   }
 
+  async function handleImageUpload(event) {
+    const file = event.target.files[0];
+    if (!file) return;
+
+    try {
+      // Upload the image file
+      const formData = new FormData();
+      formData.append('image', file);
+
+      const uploadResponse = await fetch('/api/upload', {
+        method: 'POST',
+        body: formData
+      });
+
+      const uploadResult = await uploadResponse.json();
+
+      if (uploadResult.status === 'success') {
+        // Enter placement mode with thumbnail preview
+        placementMode = true;
+        pendingImageData = {
+          filename: uploadResult.filename,
+          url: `/${uploadResult.filename}`,
+          originalWidth: 400, // Will be updated when image loads
+          originalHeight: 300
+        };
+
+        // Load image to get actual dimensions
+        const img = new Image();
+        img.onload = () => {
+          pendingImageData.originalWidth = img.naturalWidth;
+          pendingImageData.originalHeight = img.naturalHeight;
+        };
+        img.src = pendingImageData.url;
+
+        // Switch to placement tool
+        currentTool = 'place';
+      } else {
+        console.error('Upload failed:', uploadResult.message);
+      }
+    } catch (error) {
+      console.error('Error uploading image:', error);
+    } finally {
+      // Reset the input
+      event.target.value = '';
+    }
+  }
+
   async function saveSwatches() {
     const swatchData = swatchPlaceholders
       .filter(swatch => swatch.filled)
@@ -931,6 +1322,10 @@
   }
 
   function handleMouseDown(event, index) {
+    // Prevent event from bubbling to canvas mouse handlers
+    event.preventDefault();
+    event.stopPropagation();
+
     // Only allow swatch dragging when select tool is active
     if (currentTool !== 'select') {
       return;
@@ -957,7 +1352,7 @@
 
 
     // Clear any sampling indicators
-    if (overlayCtx) {
+    if (overlayCtx && overlayCanvas) {
       overlayCtx.clearRect(0, 0, overlayCanvas.width, overlayCanvas.height);
     }
 
@@ -965,6 +1360,15 @@
   }
 
   function handleMouseMove(event) {
+    // Handle image placement preview
+    if (currentTool === 'place' && placementMode && pendingImageData) {
+      const artboardRect = document.querySelector('.artboard')?.getBoundingClientRect();
+      if (artboardRect) {
+        placementPreviewX = event.clientX - artboardRect.left;
+        placementPreviewY = event.clientY - artboardRect.top;
+      }
+    }
+
     // Handle swatch dragging
     if (isDragging && draggedSwatchIndex !== -1) {
       const swatch = swatchPlaceholders[draggedSwatchIndex];
@@ -1005,21 +1409,63 @@
         const currentTransform = artboard.style.transform || `scale(${zoomLevel * 0.9})`;
         artboard.style.transform = `${currentTransform} translate(${deltaX}px, ${deltaY}px)`;
       }
-    } else if (isDraggingImage && currentTool === 'select' && isImageSelected) {
-      // Handle image dragging with select tool
-      imageX = event.clientX - imageDragStart.x;
-      imageY = event.clientY - imageDragStart.y;
+    } else if (isDraggingImage && currentTool === 'select' && selectedImageId) {
+      // Handle image dragging with select tool for the selected image
+      const selectedImage = getSelectedImage();
+      if (selectedImage) {
+        const newX = event.clientX - imageDragStart.x;
+        const newY = event.clientY - imageDragStart.y;
+
+        // Update the selected image position in the artboardImages array
+        const imageIndex = artboardImages.findIndex(img => img.id === selectedImageId);
+        if (imageIndex !== -1) {
+          artboardImages[imageIndex] = {
+            ...artboardImages[imageIndex],
+            x: newX,
+            y: newY
+          };
+          artboardImages = [...artboardImages]; // Trigger reactivity
+        }
+      }
 
       // Allow free positioning when image is selected (like resize mode)
       // No bounds checking - image can go outside artboard
-    } else if (isResizingImage && currentTool === 'select' && isImageSelected) {
-      // Handle image resizing
+    } else if (isResizingImage && currentTool === 'select' && selectedImageId) {
+      // Handle image resizing for the selected image
+      const selectedImage = getSelectedImage();
+      if (!selectedImage || !resizeStart.imageId) return;
+
+      // Don't resize if original dimensions aren't loaded yet (race condition prevention)
+      if (selectedImage.needsOriginalDimensions) {
+        console.log('Resize blocked - waiting for original dimensions to load');
+        return;
+      }
+
+      // Throttle resize operations to improve performance and reduce console spam
+      const now = Date.now();
+      if (now - lastResizeTime < RESIZE_THROTTLE) {
+        return;
+      }
+      lastResizeTime = now;
+
       const deltaX = event.clientX - resizeStart.mouseX;
       const deltaY = event.clientY - resizeStart.mouseY;
 
       let newWidth = resizeStart.width;
       let newHeight = resizeStart.height;
-      const aspectRatio = imageHeight / imageWidth;
+      let newX = selectedImage.x;
+      let newY = selectedImage.y;
+
+      // Calculate aspect ratio with fallbacks to ensure it's never null/undefined
+      const originalWidth = selectedImage.originalWidth || selectedImage.width || resizeStart.width;
+      const originalHeight = selectedImage.originalHeight || selectedImage.height || resizeStart.height;
+      const aspectRatio = originalHeight / originalWidth;
+
+      // Validate aspect ratio
+      if (!aspectRatio || isNaN(aspectRatio) || !isFinite(aspectRatio)) {
+        throttledValidationLog('Invalid aspect ratio calculated:', aspectRatio, 'originalWidth:', originalWidth, 'originalHeight:', originalHeight);
+        return; // Don't proceed with invalid aspect ratio
+      }
 
       switch (resizeHandle) {
         case 'se': // Southeast corner
@@ -1038,7 +1484,7 @@
           } else {
             newHeight = resizeStart.height + deltaY;
           }
-          imageX = resizeStart.x + (resizeStart.width - newWidth);
+          newX = resizeStart.x + (resizeStart.width - newWidth);
           break;
         case 'ne': // Northeast corner
           newWidth = resizeStart.width + deltaX;
@@ -1047,7 +1493,7 @@
           } else {
             newHeight = resizeStart.height - deltaY;
           }
-          imageY = resizeStart.y + (resizeStart.height - newHeight);
+          newY = resizeStart.y + (resizeStart.height - newHeight);
           break;
         case 'nw': // Northwest corner
           newWidth = resizeStart.width - deltaX;
@@ -1056,17 +1502,38 @@
           } else {
             newHeight = resizeStart.height - deltaY;
           }
-          imageX = resizeStart.x + (resizeStart.width - newWidth);
-          imageY = resizeStart.y + (resizeStart.height - newHeight);
+          newX = resizeStart.x + (resizeStart.width - newWidth);
+          newY = resizeStart.y + (resizeStart.height - newHeight);
           break;
       }
 
-      // Apply minimum constraints only (no maximum - allow overflow)
-      newWidth = Math.max(50, newWidth);
-      newHeight = Math.max(50, newHeight);
+      // Validate and constrain dimensions - never allow null/undefined/NaN
+      if (!newWidth || isNaN(newWidth) || !isFinite(newWidth)) {
+        throttledValidationLog('Invalid newWidth:', newWidth, 'using fallback');
+        newWidth = resizeStart.width;
+      }
+      if (!newHeight || isNaN(newHeight) || !isFinite(newHeight)) {
+        throttledValidationLog('Invalid newHeight:', newHeight, 'using fallback');
+        newHeight = resizeStart.height;
+      }
 
-      imageDisplayWidth = newWidth;
-      imageDisplayHeight = newHeight;
+      // Apply minimum constraints and ensure valid numbers
+      newWidth = Math.max(50, Math.round(newWidth));
+      newHeight = Math.max(50, Math.round(newHeight));
+
+      // Update the selected image in the artboardImages array
+      const imageIndex = artboardImages.findIndex(img => img.id === selectedImageId);
+      if (imageIndex !== -1) {
+        // Update the image object immediately for smooth visual feedback
+        artboardImages[imageIndex] = {
+          ...artboardImages[imageIndex],
+          x: newX,
+          y: newY,
+          width: newWidth,
+          height: newHeight
+        };
+        artboardImages = [...artboardImages]; // Trigger reactivity
+      }
     }
   }
 
@@ -1188,6 +1655,18 @@
         <i class="fas fa-search-{zoomMode === 'out' ? 'minus' : 'plus'} text-lg"></i>
       </button>
 
+      <!-- Upload Image Tool -->
+      <button
+        onclick={() => {
+          currentTool = 'upload';
+          document.getElementById('image-upload-input').click();
+        }}
+        class="p-3 rounded-lg transition-all duration-200 {currentTool === 'upload' ? 'bg-blue-100 text-blue-600 shadow-md' : 'text-gray-600 hover:bg-gray-100'}"
+        title="Upload Image - Add image to artboard"
+      >
+        <i class="fas fa-image text-lg"></i>
+      </button>
+
       <!-- Separator -->
       <div class="h-px bg-gray-200 mx-2 my-2"></div>
 
@@ -1225,14 +1704,15 @@
 
   <!-- Artboard Canvas -->
   <div
-    class="artboard relative bg-white shadow-2xl border border-gray-300 {getCanvasCursor()}"
+    class="artboard relative bg-white shadow-sm border border-gray-300 {getCanvasCursor()}"
     style="
       width: {artboardWidthInches}in;
       height: {artboardHeightInches}in;
       transform: scale({zoomLevel * 0.9});
       transition: transform 0.2s ease;
-      overflow: {currentTool === 'select' && isImageSelected ? 'visible' : 'hidden'};
+      overflow: visible;
     "
+    onclick={currentTool === 'place' ? handleImagePlacement : undefined}
   >
 
     <!-- Artboard Label -->
@@ -1248,123 +1728,118 @@
       <!-- Horizontal ruler markers would go here -->
     </div>
 
-    <!-- Main Image within Artboard -->
-    <div
-      class="absolute image-container"
-      style="
-        left: {imageX}px;
-        top: {imageY}px;
-        width: {imageDisplayWidth || imageWidth}px;
-        height: {imageDisplayHeight || imageHeight}px;
-        z-index: 10;
-      "
-    >
-      <div class="relative w-full h-full">
-        <canvas
-          bind:this={canvas}
-          class="{getCanvasCursor()} shadow-lg border border-gray-200"
-          onclick={onCanvasClick}
-          onmousedown={onCanvasMouseDown}
-          onmousemove={onCanvasMouseMove}
-          onmouseleave={onCanvasMouseLeave}
-          style="
-            background-color: #f8f9fa;
-            width: {imageDisplayWidth || imageWidth}px;
-            height: {imageDisplayHeight || imageHeight}px;
-          "
-        ></canvas>
+    <!-- Multiple Images within Artboard -->
+    {#each artboardImages as image, index (image.id)}
+      <div
+        class="absolute image-container"
+        style="
+          left: {image.x}px;
+          top: {image.y}px;
+          width: {image.width}px;
+          height: {image.height}px;
+          z-index: {10 + index};
+        "
+      >
+        <div class="relative w-full h-full">
+          <!-- Use img element for display - much more reliable than canvas -->
+          <img
+            src={image.src}
+            alt="Artboard image"
+            class="{getCanvasCursor()} shadow-sm border {selectedImageId === image.id ? 'border-blue-500 border-2' : 'border-gray-200'} block"
+            onclick={(e) => { selectImage(image.id, index); onCanvasClick(e); }}
+            onmousedown={onCanvasMouseDown}
+            onmousemove={onCanvasMouseMove}
+            onmouseleave={onCanvasMouseLeave}
+            style="
+              width: {image.width}px;
+              height: {image.height}px;
+              object-fit: contain;
+            "
+          />
 
-        <!-- Overflow dimming overlay (only visible when image is selected with select tool) -->
-        {#if currentTool === 'select' && isImageSelected}
-          <!-- Top overflow -->
-          {#if imageY < 0}
-            <div
-              class="absolute bg-black/30 pointer-events-none"
-              style="
-                left: 0;
-                top: 0;
-                width: 100%;
-                height: {Math.abs(imageY)}px;
-                z-index: 15;
-              "
-            ></div>
+          <!-- Hidden canvas for eyedropper functionality only -->
+          {#if index === 0}
+            <canvas
+              bind:this={canvas}
+              class="hidden"
+              width={image.originalWidth || image.width}
+              height={image.originalHeight || image.height}
+              use:drawImageOnCanvas={image}
+            ></canvas>
+          {:else}
+            <canvas
+              class="hidden"
+              width={image.originalWidth || image.width}
+              height={image.originalHeight || image.height}
+              use:drawImageOnCanvas={image}
+            ></canvas>
           {/if}
 
-          <!-- Left overflow -->
-          {#if imageX < 0}
-            <div
-              class="absolute bg-black/30 pointer-events-none"
-              style="
-                left: 0;
-                top: 0;
-                width: {Math.abs(imageX)}px;
-                height: 100%;
-                z-index: 15;
-              "
-            ></div>
+          <!-- Loading indicator for images still loading dimensions -->
+          {#if image.needsOriginalDimensions}
+            <div class="absolute top-2 right-2 bg-blue-600 text-white rounded-full p-1 z-30">
+              <i class="fas fa-spinner fa-spin text-xs"></i>
+            </div>
           {/if}
 
-          <!-- Right overflow -->
-          {#if imageX + (imageDisplayWidth || imageWidth) > artboardWidthPx}
-            <div
-              class="absolute bg-black/30 pointer-events-none"
-              style="
-                right: 0;
-                top: 0;
-                width: {(imageX + (imageDisplayWidth || imageWidth)) - artboardWidthPx}px;
-                height: 100%;
-                z-index: 15;
-              "
-            ></div>
+          <!-- Resize handles for selected image (clean, minimal design) -->
+          {#if selectedImageId === image.id && currentTool === 'select'}
+            {#if !image.needsOriginalDimensions}
+              <!-- Only show resize handles when dimensions are ready -->
+              <div
+                class="absolute -top-1 -left-1 w-3 h-3 bg-blue-600 border border-white rounded-sm cursor-nw-resize z-20 pointer-events-auto"
+                onmousedown={(e) => handleResizeMouseDown(e, 'nw', image)}
+              ></div>
+              <div
+                class="absolute -top-1 -right-1 w-3 h-3 bg-blue-600 border border-white rounded-sm cursor-ne-resize z-20 pointer-events-auto"
+                onmousedown={(e) => handleResizeMouseDown(e, 'ne', image)}
+              ></div>
+              <div
+                class="absolute -bottom-1 -left-1 w-3 h-3 bg-blue-600 border border-white rounded-sm cursor-sw-resize z-20 pointer-events-auto"
+                onmousedown={(e) => handleResizeMouseDown(e, 'sw', image)}
+              ></div>
+              <div
+                class="absolute -bottom-1 -right-1 w-3 h-3 bg-blue-600 border border-white rounded-sm cursor-se-resize z-20 pointer-events-auto"
+                onmousedown={(e) => handleResizeMouseDown(e, 'se', image)}
+              ></div>
+            {:else}
+              <!-- Show loading message instead of resize handles -->
+              <div class="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 bg-blue-600 text-white text-xs px-2 py-1 rounded z-20">
+                Loading dimensions...
+              </div>
+            {/if}
           {/if}
 
-          <!-- Bottom overflow -->
-          {#if imageY + (imageDisplayHeight || imageHeight) > artboardHeightPx}
-            <div
-              class="absolute bg-black/30 pointer-events-none"
-              style="
-                left: 0;
-                bottom: 0;
-                width: 100%;
-                height: {(imageY + (imageDisplayHeight || imageHeight)) - artboardHeightPx}px;
-                z-index: 15;
-              "
-            ></div>
-          {/if}
+        <!-- Image Placement Preview -->
+        {#if currentTool === 'place' && placementMode && pendingImageData}
+          <div
+            class="absolute pointer-events-none z-20 border-2 border-blue-500 border-dashed bg-blue-50/30"
+            style="
+              left: {placementPreviewX - 50}px;
+              top: {placementPreviewY - 50}px;
+              width: 100px;
+              height: 100px;
+              background-image: url('{pendingImageData.url}');
+              background-size: cover;
+              background-position: center;
+              border-radius: 8px;
+              box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+            "
+          >
+            <div class="absolute inset-0 bg-blue-500/20 rounded-lg"></div>
+            <div class="absolute -bottom-6 left-1/2 transform -translate-x-1/2 text-xs bg-blue-600 text-white px-2 py-1 rounded whitespace-nowrap">
+              Click to place
+            </div>
+          </div>
         {/if}
 
-        <!-- Resize Handles (only visible when image is selected with select tool) -->
-        {#if currentTool === 'select' && isImageSelected}
-          <!-- Corner handles -->
-          <div
-            class="absolute -top-1 -left-1 w-3 h-3 bg-blue-600 border border-white rounded-sm cursor-nw-resize z-20"
-            onmousedown={(e) => handleResizeMouseDown(e, 'nw')}
-          ></div>
-          <div
-            class="absolute -top-1 -right-1 w-3 h-3 bg-blue-600 border border-white rounded-sm cursor-ne-resize z-20"
-            onmousedown={(e) => handleResizeMouseDown(e, 'ne')}
-          ></div>
-          <div
-            class="absolute -bottom-1 -left-1 w-3 h-3 bg-blue-600 border border-white rounded-sm cursor-sw-resize z-20"
-            onmousedown={(e) => handleResizeMouseDown(e, 'sw')}
-          ></div>
-          <div
-            class="absolute -bottom-1 -right-1 w-3 h-3 bg-blue-600 border border-white rounded-sm cursor-se-resize z-20"
-            onmousedown={(e) => handleResizeMouseDown(e, 'se')}
-          ></div>
 
-          <!-- Selection outline -->
-          <div class="absolute -inset-0.5 border-2 border-blue-600 pointer-events-none z-10"></div>
-        {/if}
 
-        <!-- Overlay canvas positioned relative to main canvas -->
-        <canvas
-          bind:this={overlayCanvas}
-          class="absolute top-0 left-0 pointer-events-none"
-        ></canvas>
+        <!-- Overlay canvas removed to eliminate dark artifacts -->
 
+        </div>
       </div>
-    </div>
+    {/each}
 
     <!-- Color Swatches (positioned within artboard) -->
     {#each swatchPlaceholders as swatch, i}
@@ -1372,7 +1847,7 @@
         {@const swatchDims = getSwatchDimensions()}
         {@const swatchPos = swatch.data.posX !== undefined ? { x: swatch.data.posX, y: swatch.data.posY } : getSwatchPosition(i)}
         <div
-          class="absolute bg-white rounded-lg border border-gray-300 shadow-lg backdrop-blur-sm select-none {currentTool === 'select' ? 'cursor-move' : 'cursor-default'}"
+          class="absolute bg-white rounded-lg border border-gray-300 shadow-sm backdrop-blur-sm select-none {currentTool === 'select' ? 'cursor-move' : 'cursor-default'}"
           style="
             left: {swatchPos.x}px;
             top: {swatchPos.y}px;
@@ -1415,42 +1890,36 @@
 <!-- Modal -->
 {#if showModal}
   <div class="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-    <div class="bg-white rounded-2xl shadow-2xl border border-gray-200 w-full max-w-md">
+    <div class="bg-white rounded-2xl shadow-2xl border border-gray-200 w-full max-w-sm relative">
       <div class="p-6">
-        <div class="flex items-center justify-between mb-6">
-          <h3 class="text-xl font-bold text-gray-900">Add Color Description</h3>
-          <button
-            onclick={() => showModal = false}
-            class="text-gray-400 hover:text-gray-600 text-xl"
-          >
-            <i class="fas fa-times"></i>
-          </button>
-        </div>
+        <!-- Close button in top right -->
+        <button
+          onclick={() => showModal = false}
+          class="absolute top-4 right-4 text-gray-400 hover:text-gray-600 text-xl"
+        >
+          <i class="fas fa-times"></i>
+        </button>
 
         <!-- Selected Color Display -->
         <div
-          class="w-24 h-24 rounded-xl border-2 border-gray-200 mx-auto mb-6 shadow-lg"
+          class="w-20 h-20 rounded-lg border border-gray-200 mx-auto mb-4 shadow-md"
           style="background-color: {selectedColor}"
         ></div>
 
         <!-- Form -->
         <form onsubmit={handleSubmit} class="space-y-4">
-          <div>
-            <label class="block text-sm font-medium text-gray-700 mb-2">Description</label>
-            <input
-              type="text"
-              bind:value={description}
-              placeholder="Enter a description for this color..."
-              class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-              autofocus
-            />
-          </div>
+          <input
+            type="text"
+            bind:value={description}
+            placeholder="Color reference note..."
+            class="w-full px-4 py-3 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-center"
+            autofocus
+          />
           <button
             type="submit"
             class="w-full px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors duration-200 font-medium"
           >
-            <i class="fas fa-plus mr-2"></i>
-            Add to Palette
+            Add Swatch
           </button>
         </form>
       </div>
@@ -1492,3 +1961,12 @@
     </div>
   </div>
 {/if}
+
+<!-- Hidden File Input for Image Upload -->
+<input
+  type="file"
+  id="image-upload-input"
+  accept="image/*"
+  onchange={handleImageUpload}
+  class="hidden"
+/>
