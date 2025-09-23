@@ -8,6 +8,8 @@
   let uploading = $state(false);
   let artboardWidth = $state(8.5);
   let artboardHeight = $state(11.0);
+  let showDeleteModal = $state(false);
+  let paletteToDelete = $state(null);
 
   async function loadPalettes() {
     try {
@@ -23,6 +25,40 @@
 
   function openPalette(imageId) {
     goto(`/palette/${imageId}`);
+  }
+
+  function confirmDelete(palette) {
+    paletteToDelete = palette;
+    showDeleteModal = true;
+  }
+
+  function cancelDelete() {
+    showDeleteModal = false;
+    paletteToDelete = null;
+  }
+
+  async function deletePalette() {
+    if (!paletteToDelete) return;
+
+    try {
+      const response = await fetch(`/api/palettes/${paletteToDelete.image_id}`, {
+        method: 'DELETE'
+      });
+
+      const data = await response.json();
+
+      if (data.status === 'success') {
+        // Remove the palette from the reactive state
+        palettes = palettes.filter(p => p.image_id !== paletteToDelete.image_id);
+        showDeleteModal = false;
+        paletteToDelete = null;
+      } else {
+        alert('Failed to delete palette: ' + data.message);
+      }
+    } catch (error) {
+      console.error('Error deleting palette:', error);
+      alert('Failed to delete palette');
+    }
   }
 
   function handleFileSelect(event) {
@@ -145,11 +181,13 @@
       <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
         {#each palettes as palette (palette.image_id)}
           <div
-            class="group bg-white rounded-xl border border-gray-200 shadow-sm hover:shadow-lg transition-all duration-200 cursor-pointer overflow-hidden"
-            onclick={() => openPalette(palette.image_id)}
+            class="group bg-white rounded-xl border border-gray-200 shadow-sm hover:shadow-lg transition-all duration-200 cursor-pointer overflow-hidden relative"
           >
             <!-- Image Thumbnail -->
-            <div class="aspect-video bg-gray-100 relative overflow-hidden">
+            <div
+              class="aspect-video bg-gray-100 relative overflow-hidden"
+              onclick={() => openPalette(palette.image_id)}
+            >
               <img
                 src="/uploads/{palette.filename}"
                 alt={palette.original_name}
@@ -157,11 +195,19 @@
                 loading="lazy"
               />
               <div class="absolute inset-0 bg-gradient-to-t from-black/20 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-200"></div>
+
+              <!-- Delete Button -->
+              <button
+                onclick={(e) => { e.stopPropagation(); confirmDelete(palette); }}
+                class="absolute top-2 right-2 p-2 bg-red-500 text-white rounded-lg hover:bg-red-600 transition-all duration-200 opacity-0 group-hover:opacity-100 shadow-lg"
+                title="Delete palette"
+              >
+                <i class="fas fa-trash text-sm"></i>
+              </button>
             </div>
 
             <!-- Palette Info -->
-            <div class="p-4">
-              <h3 class="font-semibold text-gray-900 truncate mb-2">{palette.original_name}</h3>
+            <div class="p-4" onclick={() => openPalette(palette.image_id)}>
 
               <!-- Color Preview -->
               {#if palette.preview_colors}
@@ -201,20 +247,6 @@
 
           </div>
         {/each}
-
-        <!-- Add New Palette Card -->
-        <div
-          class="group bg-white rounded-xl border-2 border-dashed border-gray-300 hover:border-blue-400 transition-all duration-200 cursor-pointer flex items-center justify-center min-h-[300px]"
-          onclick={() => showUploadModal = true}
-        >
-          <div class="text-center p-6">
-            <div class="bg-blue-100 rounded-full w-16 h-16 flex items-center justify-center mx-auto mb-4 group-hover:bg-blue-200 transition-colors duration-200">
-              <i class="fas fa-plus text-blue-600 text-2xl"></i>
-            </div>
-            <h3 class="text-lg font-medium text-gray-900 mb-2">Add New Palette</h3>
-            <p class="text-gray-600">Upload an image to extract colors</p>
-          </div>
-        </div>
       </div>
     {/if}
   </main>
@@ -348,6 +380,51 @@
               <i class="fas fa-upload mr-2"></i>
               Create Palette
             {/if}
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+{/if}
+
+<!-- Delete Confirmation Modal -->
+{#if showDeleteModal && paletteToDelete}
+  <div class="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+    <div class="bg-white rounded-2xl shadow-2xl border border-gray-200 w-full max-w-md">
+      <div class="p-6">
+        <!-- Header -->
+        <div class="flex items-center space-x-3 mb-4">
+          <div class="bg-red-100 p-2 rounded-full">
+            <i class="fas fa-exclamation-triangle text-red-600 text-xl"></i>
+          </div>
+          <h3 class="text-xl font-bold text-gray-900">Delete Palette</h3>
+        </div>
+
+        <!-- Content -->
+        <div class="mb-6">
+          <p class="text-gray-600 mb-4">
+            Are you sure you want to delete this palette?
+          </p>
+          <p class="text-sm text-red-600">
+            <i class="fas fa-warning mr-1"></i>
+            This action cannot be undone. All color swatches associated with this palette will also be deleted.
+          </p>
+        </div>
+
+        <!-- Actions -->
+        <div class="flex space-x-3">
+          <button
+            onclick={cancelDelete}
+            class="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors duration-200 font-medium"
+          >
+            Cancel
+          </button>
+          <button
+            onclick={deletePalette}
+            class="flex-1 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors duration-200 font-medium"
+          >
+            <i class="fas fa-trash mr-2"></i>
+            Delete
           </button>
         </div>
       </div>

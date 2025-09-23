@@ -90,3 +90,39 @@ export async function PATCH({ params, request }) {
     return json({ status: 'error', message: 'Failed to update image.' }, { status: 500 });
   }
 }
+
+export async function DELETE({ params }) {
+  try {
+    const { id } = params;
+
+    const connection = await mysql.createConnection(dbConfig);
+
+    // Start transaction to ensure both deletions succeed or fail together
+    await connection.beginTransaction();
+
+    try {
+      // Delete associated swatches first (foreign key relationship)
+      await connection.execute('DELETE FROM swatches WHERE image_id = ?', [id]);
+
+      // Delete the image record
+      const [result] = await connection.execute('DELETE FROM images WHERE id = ?', [id]);
+
+      if (result.affectedRows > 0) {
+        await connection.commit();
+        await connection.end();
+        return json({ status: 'success', message: 'Palette deleted successfully.' });
+      } else {
+        await connection.rollback();
+        await connection.end();
+        return json({ status: 'error', message: 'Palette not found.' }, { status: 404 });
+      }
+    } catch (error) {
+      await connection.rollback();
+      await connection.end();
+      throw error;
+    }
+  } catch (error) {
+    console.error('Error deleting palette:', error);
+    return json({ status: 'error', message: 'Failed to delete palette.' }, { status: 500 });
+  }
+}
