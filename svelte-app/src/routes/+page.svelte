@@ -40,19 +40,25 @@
   async function deleteArtboard() {
     if (!artboardToDelete) return;
 
+    console.log('Deleting artboard:', artboardToDelete.id);
+
     try {
       const response = await fetch(`/api/artboards/${artboardToDelete.id}`, {
         method: 'DELETE'
       });
 
+      console.log('Delete response status:', response.status);
       const data = await response.json();
+      console.log('Delete response data:', data);
 
       if (data.status === 'success') {
         // Remove the artboard from the reactive state
         artboards = artboards.filter(a => a.id !== artboardToDelete.id);
         showDeleteModal = false;
         artboardToDelete = null;
+        console.log('Artboard deleted successfully');
       } else {
+        console.error('Delete failed:', data.message);
         alert('Failed to delete artboard: ' + data.message);
       }
     } catch (error) {

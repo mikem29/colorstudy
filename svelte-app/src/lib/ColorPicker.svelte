@@ -124,6 +124,7 @@
   let imageCanvases = new Map(); // Map of imageId -> canvas element
   let colorPreview;
 
+
   onMount(() => {
     // Initialize artboard images from existing images
     if (enableMultipleImages && existingImages.length > 0) {
@@ -166,6 +167,13 @@
 
     // Load artboard data
     loadArtboardData();
+
+    // Load saved swatches from database with delay to ensure artboardId is available
+    setTimeout(() => {
+      if (artboardId) {
+        loadSavedSwatchesFromDB();
+      }
+    }, 200);
 
     // Initialize swatch placeholders with existing swatches
     createPlaceholders();
@@ -460,8 +468,8 @@
   }
 
   function onCanvasClick(event) {
-    // Don't trigger actions if we're dragging a swatch or manipulating image
-    if (isDragging || isDraggingImage || isResizingImage) return;
+    // Don't trigger actions if we're dragging a swatch, manipulating image, or placing a swatch
+    if (isDragging || isDraggingImage || isResizingImage || isPlacingSwatch) return;
 
     // Get coordinates from the img element that was clicked
     const rect = event.target.getBoundingClientRect();
@@ -900,7 +908,6 @@
         updateToolbarColorPreview('#000000', 0, 0, 0);
         return;
       }
-      console.log('Hover: Canvas found, size:', hoveredCanvas.width, 'x', hoveredCanvas.height);
 
       const hoveredCtx = hoveredCanvas.getContext('2d');
       if (!hoveredCtx) {
@@ -925,7 +932,6 @@
       if (canvasX >= 0 && canvasX < hoveredCanvas.width && canvasY >= 0 && canvasY < hoveredCanvas.height) {
         // Test if canvas has image data by sampling a pixel
         const testPixel = hoveredCtx.getImageData(Math.floor(canvasX), Math.floor(canvasY), 1, 1);
-        console.log('Hover: Test pixel data:', testPixel.data[0], testPixel.data[1], testPixel.data[2], testPixel.data[3]);
 
         const { red, green, blue } = getAverageColor(hoveredCtx, canvasX, canvasY, samplingSize);
         const hexColor = rgbToHex(red, green, blue);
@@ -1037,18 +1043,13 @@
     const width = endX - startX;
     const height = endY - startY;
 
-    console.log('getAverageColor: coords', x, y, 'size', size, 'sampling area:', startX, startY, width, height);
-
     if (width <= 0 || height <= 0) {
-      console.log('getAverageColor: Invalid sampling area');
       return { red: 0, green: 0, blue: 0 };
     }
 
     try {
       const imageData = ctx.getImageData(startX, startY, width, height);
       const data = imageData.data;
-
-      console.log('getAverageColor: imageData length:', data.length, 'first few pixels:', data[0], data[1], data[2], data[3]);
 
       let red = 0, green = 0, blue = 0;
       const pixelCount = data.length / 4;
@@ -1063,7 +1064,6 @@
       green = Math.round(green / pixelCount);
       blue = Math.round(blue / pixelCount);
 
-      console.log('getAverageColor: result RGB:', red, green, blue);
       return { red, green, blue };
     } catch (error) {
       console.error('getAverageColor error:', error);
@@ -1245,6 +1245,8 @@
       imageId: imageId // Use the imageId passed as parameter
     };
 
+    console.log('updateSwatch: Creating swatch with posX:', posX, 'posY:', posY);
+
     // Add to local array first
     swatchPlaceholders[swatchIndex] = {
       filled: true,
@@ -1275,6 +1277,8 @@
           artboard_id: artboardId // Also include artboard ID
         }])
       });
+
+      console.log('updateSwatch: Saving to database - pos_x:', posX, 'pos_y:', posY);
 
       const result = await response.json();
 
@@ -1427,13 +1431,18 @@
   }
 
   async function loadSavedSwatchesFromDB() {
-    if (!imageId) return;
+    if (!artboardId) return;
+
+    console.log('loadSavedSwatchesFromDB: Loading swatches for artboard', artboardId);
 
     try {
-      const response = await fetch(`/api/swatches/${imageId}`);
+      const response = await fetch(`/api/swatches/artboard/${artboardId}`);
       const result = await response.json();
 
+      console.log('loadSavedSwatchesFromDB: API response:', result);
+
       if (result.status === 'success' && result.data.length > 0) {
+        console.log('loadSavedSwatchesFromDB: Found', result.data.length, 'saved swatches');
         // Create array sized to fit all saved swatches (minimum 8)
         const arraySize = Math.max(8, result.data.length + 8);
         swatchPlaceholders = Array(arraySize).fill().map(() => ({ filled: false, data: null }));
@@ -1491,14 +1500,19 @@
       { x: swatch.data.posX, y: swatch.data.posY } :
       getSwatchPosition(index);
 
-    // Calculate offset from mouse to current swatch position
+    // Calculate offset from mouse to current swatch position, accounting for scale
     const artboardRect = document.querySelector('.artboard').getBoundingClientRect();
-    const mouseXInArtboard = event.clientX - artboardRect.left;
-    const mouseYInArtboard = event.clientY - artboardRect.top;
+    const scale = zoomLevel * 0.9; // Match the CSS transform scale
+    const rawX = event.clientX - artboardRect.left;
+    const rawY = event.clientY - artboardRect.top;
+
+    // Adjust for artboard scale transform
+    const scaledX = rawX / scale;
+    const scaledY = rawY / scale;
 
     dragOffset = {
-      x: mouseXInArtboard - currentSwatchPos.x,
-      y: mouseYInArtboard - currentSwatchPos.y
+      x: scaledX - currentSwatchPos.x,
+      y: scaledY - currentSwatchPos.y
     };
 
 
@@ -1538,10 +1552,18 @@
           const swatchDims = getSwatchDimensions();
           const margin = Math.round(artboardWidthPx * 0.02);
 
-          // Calculate new position relative to artboard
+          // Calculate new position relative to artboard, accounting for scale transform
           const artboardRect = document.querySelector('.artboard').getBoundingClientRect();
-          const newX = (event.clientX - artboardRect.left) - dragOffset.x;
-          const newY = (event.clientY - artboardRect.top) - dragOffset.y;
+          const scale = zoomLevel * 0.9; // Match the CSS transform scale
+          const rawX = event.clientX - artboardRect.left;
+          const rawY = event.clientY - artboardRect.top;
+
+          // Adjust for artboard scale transform
+          const scaledX = rawX / scale;
+          const scaledY = rawY / scale;
+
+          const newX = scaledX - dragOffset.x;
+          const newY = scaledY - dragOffset.y;
 
           // Constrain to artboard boundaries
           const constrainedX = Math.max(margin, Math.min(artboardWidthPx - swatchDims.width - 16 - margin, newX));
