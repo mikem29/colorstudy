@@ -92,6 +92,12 @@
 
   let samplingSize = $state(1);
   let colorFormat = $state('RGB');
+
+  // Manual swatch placement states
+  let isPlacingSwatch = $state(false);
+  let pendingSwatchData = $state(null);
+  let swatchPlacementX = $state(0);
+  let swatchPlacementY = $state(0);
   let showModal = $state(false);
   let description = $state('');
   let selectedColor = $state('#000000');
@@ -158,9 +164,11 @@
       }
     }
 
-    // Load artboard data and saved swatches for this image
+    // Load artboard data
     loadArtboardData();
-    loadSavedSwatchesFromDB();
+
+    // Initialize swatch placeholders with existing swatches
+    createPlaceholders();
 
     // Add global mouse event listeners for smooth dragging
     const handleGlobalMouseMove = (event) => handleMouseMove(event);
@@ -286,6 +294,11 @@
   });
 
   function loadImageToCanvas(img) {
+    // Skip this function entirely if using multiple images
+    if (enableMultipleImages) {
+      return;
+    }
+
     // For the new multiple image system, we mainly need to set up the primary canvas
     // if it exists (for the first image) to support eyedropper functionality
     if (!canvas) {
@@ -335,6 +348,11 @@
   }
 
   function initializeEmptyCanvas() {
+    // Skip this function entirely if using multiple images
+    if (enableMultipleImages) {
+      return;
+    }
+
     if (!canvas) {
       console.log('No canvas available for initialization');
       return;
@@ -453,7 +471,7 @@
     // Handle different tool modes
     switch (currentTool) {
       case 'eyedropper':
-        handleEyedropperClick(x, y);
+        handleEyedropperClick(x, y, event.target);
         break;
       case 'zoom':
         handleZoomClick(event, x, y);
@@ -470,50 +488,65 @@
         break;
       default:
         // Default to eyedropper behavior for backward compatibility
-        handleEyedropperClick(x, y);
+        handleEyedropperClick(x, y, event.target);
     }
   }
 
-  function handleEyedropperClick(x, y) {
-    // For multiple images, we need to work with the selected image
-    if (!selectedImageId) {
-      console.log('No image selected for eyedropper');
+  function handleEyedropperClick(x, y, targetElement) {
+    // Find which image this img element belongs to by checking artboardImages
+    let clickedImageId = null;
+    let clickedImage = null;
+
+    // Use data-image-id attribute for reliable matching
+    const imageIdAttr = targetElement.getAttribute('data-image-id');
+    if (imageIdAttr) {
+      clickedImageId = parseInt(imageIdAttr);
+      clickedImage = artboardImages.find(img => img.id === clickedImageId);
+    }
+
+    if (!clickedImageId || !clickedImage) {
+      console.log('No image found for eyedropper click');
       return;
     }
 
-    const selectedImage = getSelectedImage();
-    if (!selectedImage) {
-      console.log('Selected image not found');
+    // Get the canvas element for the clicked image
+    const clickedCanvas = imageCanvases.get(clickedImageId);
+    if (!clickedCanvas) {
+      console.log('Canvas not found for clicked image');
       return;
     }
 
-    // Get the canvas element for the selected image
-    const selectedCanvas = imageCanvases.get(selectedImageId);
-    if (!selectedCanvas) {
-      console.log('Canvas not found for selected image');
+    const clickedCtx = clickedCanvas.getContext('2d');
+    if (!clickedCtx) {
+      console.log('Cannot get canvas context for clicked image');
       return;
     }
 
-    const selectedCtx = selectedCanvas.getContext('2d');
-    if (!selectedCtx) {
-      console.log('Cannot get canvas context for selected image');
+    // Get the img element's displayed size for consistent coordinate calculation
+    const imgElement = document.querySelector(`img[data-image-id="${clickedImageId}"]`);
+    if (!imgElement) {
+      console.log('Image element not found for coordinate calculation');
       return;
     }
 
-    // Scale coordinates from displayed image size to canvas size
-    const scaleX = selectedCanvas.width / selectedImage.width;
-    const scaleY = selectedCanvas.height / selectedImage.height;
-    const canvasX = Math.floor(x * scaleX);
-    const canvasY = Math.floor(y * scaleY);
+    const imgRect = imgElement.getBoundingClientRect();
+
+    // Scale coordinates from displayed image size to canvas size (same as hover preview)
+    const scaleX = clickedCanvas.width / imgRect.width;
+    const scaleY = clickedCanvas.height / imgRect.height;
+    const canvasX = x * scaleX;
+    const canvasY = y * scaleY;
 
     // Make sure coordinates are within canvas bounds
-    if (canvasX < 0 || canvasX >= selectedCanvas.width || canvasY < 0 || canvasY >= selectedCanvas.height) {
+    if (canvasX < 0 || canvasX >= clickedCanvas.width || canvasY < 0 || canvasY >= clickedCanvas.height) {
       console.log('Click coordinates outside canvas bounds');
       return;
     }
 
-    const { red, green, blue } = getAverageColor(selectedCtx, canvasX, canvasY, samplingSize);
+    const { red, green, blue } = getAverageColor(clickedCtx, canvasX, canvasY, samplingSize);
     const hexColor = rgbToHex(red, green, blue);
+
+    console.log('Click sampling - Canvas coords:', canvasX, canvasY, 'RGB:', red, green, blue, 'Hex:', hexColor);
 
     // Calculate default position for new swatch (artboard-relative)
     const swatchPos = getSwatchPosition(swatchIndex);
@@ -526,7 +559,8 @@
       sampleX: canvasX,
       sampleY: canvasY,
       posX: swatchPos.x, // Already artboard-relative
-      posY: swatchPos.y  // Already artboard-relative
+      posY: swatchPos.y, // Already artboard-relative
+      imageId: clickedImageId // Track which image this color was sampled from
     };
     selectedColor = hexColor;
     showModal = true;
@@ -843,28 +877,33 @@
 
     // Only show color preview and sampling for eyedropper tool
     if (currentTool === 'eyedropper') {
-      // For multiple images, work with the selected image
-      if (!selectedImageId) {
-        // No image selected, just clear the preview
+      // Find which image this img element belongs to by checking artboardImages
+      let hoveredImageId = null;
+      let hoveredImage = null;
+
+      // The targetCanvas is actually an img element, so use the data-image-id attribute
+      const imageIdAttr = targetCanvas.getAttribute('data-image-id');
+      if (imageIdAttr) {
+        hoveredImageId = parseInt(imageIdAttr);
+        hoveredImage = artboardImages.find(img => img.id === hoveredImageId);
+      }
+
+      if (!hoveredImageId || !hoveredImage) {
         updateToolbarColorPreview('#000000', 0, 0, 0);
         return;
       }
 
-      const selectedImage = getSelectedImage();
-      if (!selectedImage) {
+      // Get the canvas for the hovered image
+      const hoveredCanvas = imageCanvases.get(hoveredImageId);
+      if (!hoveredCanvas) {
+        console.log('Hover: Canvas not found for image ID:', hoveredImageId);
         updateToolbarColorPreview('#000000', 0, 0, 0);
         return;
       }
+      console.log('Hover: Canvas found, size:', hoveredCanvas.width, 'x', hoveredCanvas.height);
 
-      // Get the canvas for the selected image
-      const selectedCanvas = imageCanvases.get(selectedImageId);
-      if (!selectedCanvas) {
-        updateToolbarColorPreview('#000000', 0, 0, 0);
-        return;
-      }
-
-      const selectedCtx = selectedCanvas.getContext('2d');
-      if (!selectedCtx) {
+      const hoveredCtx = hoveredCanvas.getContext('2d');
+      if (!hoveredCtx) {
         updateToolbarColorPreview('#000000', 0, 0, 0);
         return;
       }
@@ -874,16 +913,24 @@
       const displayedCanvasHeight = rect.height;
 
       // Scale from displayed canvas coordinates to internal canvas coordinates
-      const scaleX = selectedCanvas.width / displayedCanvasWidth;
-      const scaleY = selectedCanvas.height / displayedCanvasHeight;
+      const scaleX = hoveredCanvas.width / displayedCanvasWidth;
+      const scaleY = hoveredCanvas.height / displayedCanvasHeight;
 
       const canvasX = x * scaleX;
       const canvasY = y * scaleY;
 
+      console.log('Hover: Mouse pos:', x, y, 'Scale:', scaleX, scaleY, 'Canvas pos:', canvasX, canvasY);
+
       // Make sure we're within canvas bounds
-      if (canvasX >= 0 && canvasX < selectedCanvas.width && canvasY >= 0 && canvasY < selectedCanvas.height) {
-        const { red, green, blue } = getAverageColor(selectedCtx, canvasX, canvasY, samplingSize);
+      if (canvasX >= 0 && canvasX < hoveredCanvas.width && canvasY >= 0 && canvasY < hoveredCanvas.height) {
+        // Test if canvas has image data by sampling a pixel
+        const testPixel = hoveredCtx.getImageData(Math.floor(canvasX), Math.floor(canvasY), 1, 1);
+        console.log('Hover: Test pixel data:', testPixel.data[0], testPixel.data[1], testPixel.data[2], testPixel.data[3]);
+
+        const { red, green, blue } = getAverageColor(hoveredCtx, canvasX, canvasY, samplingSize);
         const hexColor = rgbToHex(red, green, blue);
+
+        console.log('Hover sampling - Canvas coords:', canvasX, canvasY, 'RGB:', red, green, blue, 'Hex:', hexColor);
 
         // Show preview window but no floating icon - use crosshair cursor
         eyedropperX = event.clientX;
@@ -977,6 +1024,10 @@
   }
 
   function getAverageColor(ctx, x, y, size) {
+    // Ensure coordinates are integers for getImageData
+    x = Math.floor(x);
+    y = Math.floor(y);
+
     const halfSize = Math.floor(size / 2);
     const startX = Math.max(0, x - halfSize);
     const startY = Math.max(0, y - halfSize);
@@ -986,23 +1037,38 @@
     const width = endX - startX;
     const height = endY - startY;
 
-    const imageData = ctx.getImageData(startX, startY, width, height);
-    const data = imageData.data;
+    console.log('getAverageColor: coords', x, y, 'size', size, 'sampling area:', startX, startY, width, height);
 
-    let red = 0, green = 0, blue = 0;
-    const pixelCount = data.length / 4;
-
-    for (let i = 0; i < data.length; i += 4) {
-      red += data[i];
-      green += data[i + 1];
-      blue += data[i + 2];
+    if (width <= 0 || height <= 0) {
+      console.log('getAverageColor: Invalid sampling area');
+      return { red: 0, green: 0, blue: 0 };
     }
 
-    red = Math.round(red / pixelCount);
-    green = Math.round(green / pixelCount);
-    blue = Math.round(blue / pixelCount);
+    try {
+      const imageData = ctx.getImageData(startX, startY, width, height);
+      const data = imageData.data;
 
-    return { red, green, blue };
+      console.log('getAverageColor: imageData length:', data.length, 'first few pixels:', data[0], data[1], data[2], data[3]);
+
+      let red = 0, green = 0, blue = 0;
+      const pixelCount = data.length / 4;
+
+      for (let i = 0; i < data.length; i += 4) {
+        red += data[i];
+        green += data[i + 1];
+        blue += data[i + 2];
+      }
+
+      red = Math.round(red / pixelCount);
+      green = Math.round(green / pixelCount);
+      blue = Math.round(blue / pixelCount);
+
+      console.log('getAverageColor: result RGB:', red, green, blue);
+      return { red, green, blue };
+    } catch (error) {
+      console.error('getAverageColor error:', error);
+      return { red: 0, green: 0, blue: 0 };
+    }
   }
 
   function rgbToHex(r, g, b) {
@@ -1039,36 +1105,119 @@
     previewRed = red;
     previewGreen = green;
     previewBlue = blue;
+    // Keep selectedColor in sync with preview for consistency
+    selectedColor = hexColor;
   }
 
   function createPlaceholders() {
     const maxSwatches = 8;
-    swatchPlaceholders = Array(maxSwatches).fill().map(() => ({
-      filled: false,
-      data: null
-    }));
+
+    // If we have existing swatches, load them first
+    if (existingSwatches && existingSwatches.length > 0) {
+      // Start with existing swatches
+      swatchPlaceholders = existingSwatches.map(swatch => ({
+        filled: true,
+        data: {
+          hexColor: swatch.hex_color,
+          red: swatch.red,
+          green: swatch.green,
+          blue: swatch.blue,
+          cmyk: swatch.cmyk,
+          description: swatch.description,
+          posX: swatch.pos_x,
+          posY: swatch.pos_y,
+          sampleX: swatch.sample_x,
+          sampleY: swatch.sample_y,
+          imageId: swatch.image_id
+        }
+      }));
+
+      // Set the index to the next available slot
+      swatchIndex = existingSwatches.length;
+
+      // Add empty placeholders to reach maxSwatches
+      const remainingSlots = Math.max(maxSwatches - existingSwatches.length, 0);
+      for (let i = 0; i < remainingSlots; i++) {
+        swatchPlaceholders.push({
+          filled: false,
+          data: null
+        });
+      }
+    } else {
+      // Create all empty placeholders
+      swatchPlaceholders = Array(maxSwatches).fill().map(() => ({
+        filled: false,
+        data: null
+      }));
+      swatchIndex = 0;
+    }
+  }
+
+  function handleSwatchPlacement(event) {
+    if (!isPlacingSwatch || !pendingSwatchData) return;
+
+    // Stop propagation to prevent other click handlers
+    event.stopPropagation();
+
+    // Get click position relative to artboard container
+    const rect = event.currentTarget.getBoundingClientRect();
+    let posX = event.clientX - rect.left;
+    let posY = event.clientY - rect.top;
+
+    // Account for zoom and pan transforms to get actual position on artboard
+    posX = (posX - panX) / zoomLevel;
+    posY = (posY - panY) / zoomLevel;
+
+    console.log('Swatch placement - Raw coords:', event.clientX - rect.left, event.clientY - rect.top);
+    console.log('Swatch placement - Transformed coords:', posX, posY);
+    console.log('Zoom level:', zoomLevel, 'Pan:', panX, panY);
+
+    // Place the swatch at the clicked position
+    updateSwatch(
+      pendingSwatchData.hexColor,
+      pendingSwatchData.red,
+      pendingSwatchData.green,
+      pendingSwatchData.blue,
+      pendingSwatchData.description,
+      posX,
+      posY,
+      pendingSwatchData.sampleX,
+      pendingSwatchData.sampleY,
+      pendingSwatchData.imageId
+    );
+
+    // Exit placement mode
+    isPlacingSwatch = false;
+    pendingSwatchData = null;
   }
 
   function handleSubmit() {
     if (description.trim() && pendingClickData) {
-      updateSwatch(
-        pendingClickData.hexColor,
-        pendingClickData.red,
-        pendingClickData.green,
-        pendingClickData.blue,
-        description.trim(),
-        pendingClickData.posX,
-        pendingClickData.posY,
-        pendingClickData.sampleX,
-        pendingClickData.sampleY
-      );
+      // Create the swatch data but don't place it yet
+      const { c, m, y, k } = rgbToCmyk(pendingClickData.red, pendingClickData.green, pendingClickData.blue);
+      const cmykString = `C:${c}%, M:${m}%, Y:${y}%, K:${k}%`;
+
+      pendingSwatchData = {
+        hexColor: pendingClickData.hexColor,
+        red: pendingClickData.red,
+        green: pendingClickData.green,
+        blue: pendingClickData.blue,
+        cmyk: cmykString,
+        description: description.trim(),
+        sampleX: pendingClickData.sampleX,
+        sampleY: pendingClickData.sampleY,
+        imageId: pendingClickData.imageId
+      };
+
+      // Enter placement mode
+      isPlacingSwatch = true;
       showModal = false;
       description = '';
       pendingClickData = null;
     }
   }
 
-  async function updateSwatch(hexColor, red, green, blue, desc, posX, posY, sampleX, sampleY) {
+  async function updateSwatch(hexColor, red, green, blue, desc, posX, posY, sampleX, sampleY, imageId) {
     // Expand array if we've reached the current limit
     if (swatchIndex >= swatchPlaceholders.length) {
       const newPlaceholders = Array(swatchPlaceholders.length + 8).fill().map(() => ({ filled: false, data: null }));
@@ -1092,7 +1241,8 @@
       posX,
       posY,
       sampleX,
-      sampleY
+      sampleY,
+      imageId: imageId // Use the imageId passed as parameter
     };
 
     // Add to local array first
@@ -1103,7 +1253,7 @@
 
     swatchIndex++;
 
-    // Save to database immediately
+    // Save to database immediately with the correct image ID
     try {
       const response = await fetch('/api/swatches', {
         method: 'POST',
@@ -1117,11 +1267,12 @@
           blue,
           cmyk: cmykString,
           description: desc,
-          image_id: imageId,
+          image_id: imageId || swatchData.imageId, // Use the imageId parameter first, then fallback
           pos_x: posX,
           pos_y: posY,
           sample_x: sampleX,
-          sample_y: sampleY
+          sample_y: sampleY,
+          artboard_id: artboardId // Also include artboard ID
         }])
       });
 
@@ -1192,7 +1343,7 @@
         blue: swatch.data.blue,
         cmyk: swatch.data.cmyk,
         description: swatch.data.description,
-        image_id: imageId,
+        image_id: swatch.data.imageId || imageId, // Use imageId from swatch data, fallback to global imageId
         pos_x: swatch.data.posX,
         pos_y: swatch.data.posY,
         sample_x: swatch.data.sampleX,
@@ -1360,6 +1511,15 @@
   }
 
   function handleMouseMove(event) {
+    // Handle swatch placement preview
+    if (isPlacingSwatch && pendingSwatchData) {
+      const artboardRect = document.querySelector('.artboard')?.getBoundingClientRect();
+      if (artboardRect) {
+        swatchPlacementX = event.clientX - artboardRect.left;
+        swatchPlacementY = event.clientY - artboardRect.top;
+      }
+    }
+
     // Handle image placement preview
     if (currentTool === 'place' && placementMode && pendingImageData) {
       const artboardRect = document.querySelector('.artboard')?.getBoundingClientRect();
@@ -1552,7 +1712,7 @@
             },
             body: JSON.stringify({
               hex_color: swatch.data.hexColor,
-              image_id: imageId,
+              image_id: swatch.data.imageId || imageId, // Use imageId from swatch data, fallback to global imageId
               pos_x: swatch.data.posX,
               pos_y: swatch.data.posY
             })
@@ -1614,6 +1774,35 @@
     }
   }}
 >
+  <!-- Controls Panel (top right) -->
+  <div class="fixed top-4 right-4 bg-white rounded-xl shadow-2xl border border-gray-200 p-4 z-50 space-y-3" onclick={(e) => e.stopPropagation()}>
+    <!-- Sampling Size Selector -->
+    <div class="flex items-center space-x-2">
+      <label class="text-sm font-medium text-gray-700 whitespace-nowrap">Sample Size:</label>
+      <select
+        bind:value={samplingSize}
+        class="px-3 py-1.5 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+      >
+        <option value={1}>1x1 (Point)</option>
+        <option value={3}>3x3</option>
+        <option value={5}>5x5</option>
+        <option value={11}>11x11</option>
+        <option value={31}>31x31</option>
+      </select>
+    </div>
+
+    <!-- Color Format Selector -->
+    <div class="flex items-center space-x-2">
+      <label class="text-sm font-medium text-gray-700 whitespace-nowrap">Color Mode:</label>
+      <select
+        bind:value={colorFormat}
+        class="px-3 py-1.5 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+      >
+        <option value="RGB">RGB</option>
+        <option value="CMYK">CMYK</option>
+      </select>
+    </div>
+  </div>
 
   <!-- Professional Design Toolbar -->
   <div class="fixed left-4 top-1/2 transform -translate-y-1/2 bg-white rounded-xl shadow-2xl border border-gray-200 p-2 z-50" onclick={(e) => e.stopPropagation()}>
@@ -1712,7 +1901,7 @@
       transition: transform 0.2s ease;
       overflow: visible;
     "
-    onclick={currentTool === 'place' ? handleImagePlacement : undefined}
+    onclick={isPlacingSwatch ? handleSwatchPlacement : currentTool === 'place' ? handleImagePlacement : undefined}
   >
 
     <!-- Artboard Label -->
@@ -1745,8 +1934,15 @@
           <img
             src={image.src}
             alt="Artboard image"
+            data-image-id={image.id}
             class="{getCanvasCursor()} shadow-sm border {selectedImageId === image.id ? 'border-blue-500 border-2' : 'border-gray-200'} block"
-            onclick={(e) => { selectImage(image.id, index); onCanvasClick(e); }}
+            onclick={(e) => {
+              // Only select image when using select tool, not eyedropper
+              if (currentTool === 'select') {
+                selectImage(image.id, index);
+              }
+              onCanvasClick(e);
+            }}
             onmousedown={onCanvasMouseDown}
             onmousemove={onCanvasMouseMove}
             onmouseleave={onCanvasMouseLeave}
@@ -1928,7 +2124,7 @@
 {/if}
 
 <!-- Floating Eyedropper Preview -->
-{#if showEyedropper && currentTool === 'eyedropper'}
+{#if showEyedropper && currentTool === 'eyedropper' && !isPlacingSwatch}
 
   <!-- Preview Window -->
   <div
@@ -1957,6 +2153,33 @@
           }
         </div>
         <div class="text-gray-500 mt-1">Click to add swatch</div>
+      </div>
+    </div>
+  </div>
+{/if}
+
+<!-- Floating Swatch Preview During Placement -->
+{#if isPlacingSwatch && pendingSwatchData}
+  <div
+    class="fixed pointer-events-none z-50 bg-white rounded-lg shadow-xl border border-gray-200 p-2"
+    style="
+      left: {swatchPlacementX + 15}px;
+      top: {swatchPlacementY + 15}px;
+    "
+  >
+    <div class="flex flex-col items-center space-y-2">
+      <!-- Color Swatch Preview -->
+      <div
+        class="w-16 h-16 rounded-lg border border-gray-200 shadow-inner"
+        style="background-color: {pendingSwatchData.hexColor};"
+      ></div>
+
+      <!-- Description -->
+      <div class="text-xs text-center px-2">
+        <div class="font-medium text-gray-800 truncate max-w-20">
+          {pendingSwatchData.description || 'Untitled'}
+        </div>
+        <div class="text-gray-500 mt-0.5">Click to place</div>
       </div>
     </div>
   </div>
