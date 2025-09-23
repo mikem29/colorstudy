@@ -1,0 +1,13 @@
+{
+  "name": "colorstudy-db-backup",
+  "version": "1.0.0",
+  "description": "Database backup and restore scripts for colorstudy app",
+  "scripts": {
+    "backup": "bash ./scripts/backup.sh",
+    "backup:dev": "bash ./scripts/backup.sh dev",
+    "backup:staging": "bash ./scripts/backup.sh staging",
+    "backup:prod": "bash ./scripts/backup.sh prod",
+    "restore": "bash ./scripts/restore.sh",
+    "schedule-backup": "bash ./scripts/schedule-backup.sh"
+  }
+}
