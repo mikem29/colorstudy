@@ -82,6 +82,9 @@
   // Image selection state
   let isImageSelected = $state(false);
 
+  // Swatch selection state
+  let selectedSwatchIndex = $state(-1);
+
   // Image manipulation state
   let isDraggingImage = $state(false);
   let isResizingImage = $state(false);
@@ -158,11 +161,7 @@
         img.src = imageData.src;
       });
 
-      // Auto-select the first image
-      if (artboardImages.length > 0) {
-        selectedImageId = artboardImages[0].id;
-        selectedImageIndex = 0;
-      }
+      // Don't auto-select images - only select when clicked
     }
 
     // Load artboard data
@@ -587,6 +586,8 @@
   function selectImage(imageId, index) {
     selectedImageId = imageId;
     selectedImageIndex = index;
+    // Deselect any selected swatch when selecting image
+    selectedSwatchIndex = -1;
     console.log('Selected image:', imageId, 'at index:', index);
   }
 
@@ -1124,8 +1125,8 @@
           blue: swatch.blue,
           cmyk: swatch.cmyk,
           description: swatch.description,
-          posX: swatch.pos_x,
-          posY: swatch.pos_y,
+          posX: parseFloat(swatch.pos_x) || 0,
+          posY: parseFloat(swatch.pos_y) || 0,
           sampleX: swatch.sample_x,
           sampleY: swatch.sample_y,
           imageId: swatch.image_id
@@ -1458,8 +1459,8 @@
               blue: swatch.blue,
               cmyk: swatch.cmyk,
               description: swatch.description,
-              posX: swatch.pos_x,
-              posY: swatch.pos_y,
+              posX: parseFloat(swatch.pos_x) || 0,
+              posY: parseFloat(swatch.pos_y) || 0,
               sampleX: swatch.sample_x,
               sampleY: swatch.sample_y
             }
@@ -1491,28 +1492,34 @@
       return;
     }
 
+    // Deselect any selected image when clicking on swatch
+    selectedImageId = null;
+    selectedImageIndex = -1;
+    isImageSelected = false;
+
+    // Select this swatch
+    selectedSwatchIndex = index;
+
     isDragging = true;
     draggedSwatchIndex = index;
 
-    // Get the current swatch position
     const swatch = swatchPlaceholders[index];
-    const currentSwatchPos = swatch.data.posX !== undefined ?
-      { x: swatch.data.posX, y: swatch.data.posY } :
-      getSwatchPosition(index);
 
-    // Calculate offset from mouse to current swatch position, accounting for scale
+    // Initialize position if not set
+    if (swatch.data.posX === undefined) {
+      const currentPos = getSwatchPosition(index);
+      swatch.data.posX = currentPos.x;
+      swatch.data.posY = currentPos.y;
+    }
+
+    // Calculate offset from mouse to swatch position relative to artboard
     const artboardRect = document.querySelector('.artboard').getBoundingClientRect();
-    const scale = zoomLevel * 0.9; // Match the CSS transform scale
-    const rawX = event.clientX - artboardRect.left;
-    const rawY = event.clientY - artboardRect.top;
-
-    // Adjust for artboard scale transform
-    const scaledX = rawX / scale;
-    const scaledY = rawY / scale;
+    const mouseX = event.clientX - artboardRect.left;
+    const mouseY = event.clientY - artboardRect.top;
 
     dragOffset = {
-      x: scaledX - currentSwatchPos.x,
-      y: scaledY - currentSwatchPos.y
+      x: mouseX - swatch.data.posX,
+      y: mouseY - swatch.data.posY
     };
 
 
@@ -1520,8 +1527,6 @@
     if (overlayCtx && overlayCanvas) {
       overlayCtx.clearRect(0, 0, overlayCanvas.width, overlayCanvas.height);
     }
-
-    event.preventDefault();
   }
 
   function handleMouseMove(event) {
@@ -1547,31 +1552,17 @@
     if (isDragging && draggedSwatchIndex !== -1) {
       const swatch = swatchPlaceholders[draggedSwatchIndex];
       if (swatch && swatch.filled) {
-        // Update swatch position based on mouse movement with requestAnimationFrame for smooth performance
-        requestAnimationFrame(() => {
-          const swatchDims = getSwatchDimensions();
-          const margin = Math.round(artboardWidthPx * 0.02);
+        // Calculate new position relative to artboard container
+        const artboardRect = document.querySelector('.artboard').getBoundingClientRect();
+        const mouseX = event.clientX - artboardRect.left;
+        const mouseY = event.clientY - artboardRect.top;
 
-          // Calculate new position relative to artboard, accounting for scale transform
-          const artboardRect = document.querySelector('.artboard').getBoundingClientRect();
-          const scale = zoomLevel * 0.9; // Match the CSS transform scale
-          const rawX = event.clientX - artboardRect.left;
-          const rawY = event.clientY - artboardRect.top;
+        const newX = mouseX - dragOffset.x;
+        const newY = mouseY - dragOffset.y;
 
-          // Adjust for artboard scale transform
-          const scaledX = rawX / scale;
-          const scaledY = rawY / scale;
-
-          const newX = scaledX - dragOffset.x;
-          const newY = scaledY - dragOffset.y;
-
-          // Constrain to artboard boundaries
-          const constrainedX = Math.max(margin, Math.min(artboardWidthPx - swatchDims.width - 16 - margin, newX));
-          const constrainedY = Math.max(margin, Math.min(artboardHeightPx - (swatchDims.height + 60) - margin, newY)); // 60px for text area
-
-          swatch.data.posX = constrainedX;
-          swatch.data.posY = constrainedY;
-        });
+        // No boundary constraints for now - let swatches move freely
+        swatch.data.posX = newX;
+        swatch.data.posY = newY;
       }
       return;
     }
@@ -1726,22 +1717,30 @@
 
       // Save the new position to database
       if (swatch && swatch.filled) {
+        // Get a valid image_id - use the swatch's stored imageId, fallback to first available image
+        const validImageId = swatch.data.imageId || imageId || (artboardImages.length > 0 ? artboardImages[0].id : null);
+
+        const requestData = {
+          hex_color: swatch.data.hexColor,
+          image_id: validImageId,
+          pos_x: swatch.data.posX,
+          pos_y: swatch.data.posY
+        };
+
+
         try {
           const response = await fetch('/api/swatches/update-position', {
             method: 'POST',
             headers: {
               'Content-Type': 'application/json'
             },
-            body: JSON.stringify({
-              hex_color: swatch.data.hexColor,
-              image_id: swatch.data.imageId || imageId, // Use imageId from swatch data, fallback to global imageId
-              pos_x: swatch.data.posX,
-              pos_y: swatch.data.posY
-            })
+            body: JSON.stringify(requestData)
           });
 
           const result = await response.json();
-          if (result.status !== 'success') {
+          if (result.status === 'success') {
+            console.log('Position saved successfully');
+          } else {
             console.error('Failed to save position:', result.message);
           }
         } catch (error) {
@@ -1751,6 +1750,7 @@
 
       isDragging = false;
       draggedSwatchIndex = -1;
+      // Don't deselect swatch here - keep it selected after drag
     }
 
     // Handle artboard tool interactions
@@ -1790,9 +1790,12 @@
   onmouseup={handleMouseUp}
   onclick={(e) => {
     showZoomDropdown = false;
-    // Deselect image when clicking outside the artboard area with select tool
+    // Deselect selections when clicking outside the artboard area with select tool
     if (currentTool === 'select' && e.target === e.currentTarget) {
       isImageSelected = false;
+      selectedImageId = null;
+      selectedImageIndex = -1;
+      selectedSwatchIndex = -1;
     }
   }}
 >
@@ -2063,9 +2066,12 @@
     {#each swatchPlaceholders as swatch, i}
       {#if swatch.filled}
         {@const swatchDims = getSwatchDimensions()}
-        {@const swatchPos = swatch.data.posX !== undefined ? { x: swatch.data.posX, y: swatch.data.posY } : getSwatchPosition(i)}
+        {@const swatchPos = {
+          x: swatch.data.posX !== undefined && swatch.data.posX !== null ? swatch.data.posX : getSwatchPosition(i).x,
+          y: swatch.data.posY !== undefined && swatch.data.posY !== null ? swatch.data.posY : getSwatchPosition(i).y
+        }}
         <div
-          class="absolute bg-white rounded-lg border border-gray-300 shadow-sm backdrop-blur-sm select-none {currentTool === 'select' ? 'cursor-move' : 'cursor-default'}"
+          class="absolute bg-white rounded-lg border {selectedSwatchIndex === i ? 'border-blue-500 border-2' : 'border-gray-300'} shadow-sm backdrop-blur-sm select-none {currentTool === 'select' ? 'cursor-move' : 'cursor-default'}"
           style="
             left: {swatchPos.x}px;
             top: {swatchPos.y}px;
@@ -2074,8 +2080,8 @@
             padding: 0.1in;
             z-index: {isDragging && draggedSwatchIndex === i ? 9999 : 100 + i};
             will-change: transform;
-            transform: {isDragging && draggedSwatchIndex === i ? 'scale(1.05)' : 'scale(1)'};
-            transition: {isDragging && draggedSwatchIndex === i ? 'none' : 'transform 0.2s ease'};
+            transform: scale(1);
+            transition: none;
           "
           onmousedown={(e) => handleMouseDown(e, i)}
         >
