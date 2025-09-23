@@ -1,0 +1,23 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npm create:*)",
+      "Bash(npx sv:*)",
+      "Bash(npm init:*)",
+      "Bash(npm install:*)",
+      "Bash(docker-compose up:*)",
+      "Bash(npm run dev:*)",
+      "Bash(docker exec:*)",
+      "Bash(npx tailwindcss init:*)",
+      "Bash(npm uninstall:*)",
+      "Bash(mysql:*)",
+      "Read(//c/Projects/MicroSaas/**)",
+      "Read(//c/Projects/**)",
+      "Bash(curl:*)",
+      "WebSearch",
+      "Bash(winpty docker exec:*)"
+    ],
+    "deny": [],
+    "ask": []
+  }
+}
