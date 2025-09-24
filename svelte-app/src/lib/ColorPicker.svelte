@@ -1139,6 +1139,7 @@
           posY: parseFloat(swatch.pos_y) || 0,
           sampleX: swatch.sample_x,
           sampleY: swatch.sample_y,
+          sampleSize: swatch.sample_size || 1,
           imageId: swatch.image_id
         }
       }));
@@ -1475,7 +1476,9 @@
               posX: parseFloat(swatch.pos_x) || 0,
               posY: parseFloat(swatch.pos_y) || 0,
               sampleX: swatch.sample_x,
-              sampleY: swatch.sample_y
+              sampleY: swatch.sample_y,
+              sampleSize: swatch.sample_size || 1,
+              imageId: swatch.image_id
             }
           };
         });
@@ -2069,6 +2072,88 @@
 
         </div>
       </div>
+    {/each}
+
+    <!-- Visual Connectors from Swatches to Sample Locations -->
+    {#each swatchPlaceholders as swatch, i}
+      {#if swatch.filled && swatch.data.sampleX != null && swatch.data.sampleY != null && swatch.data.imageId}
+        {@const sourceImage = artboardImages.find(img => img.id === swatch.data.imageId)}
+        {#if sourceImage}
+          {@const swatchPos = {
+            x: swatch.data.posX !== undefined && swatch.data.posX !== null ? swatch.data.posX : getSwatchPosition(i).x,
+            y: swatch.data.posY !== undefined && swatch.data.posY !== null ? swatch.data.posY : getSwatchPosition(i).y
+          }}
+          {@const swatchCenterX = swatchPos.x + (2.5 * 96) / 2}
+          {@const swatchCenterY = swatchPos.y + (1.5 * 96) / 2}
+          {@const imgCanvas = imageCanvases.get(swatch.data.imageId)}
+          {@const sampleSize = swatch.data.sampleSize || 1}
+
+          {#if imgCanvas && sourceImage.width > 0 && sourceImage.height > 0 && imgCanvas.width > 0 && imgCanvas.height > 0 && typeof swatch.data.sampleX === 'number' && typeof swatch.data.sampleY === 'number' && !isNaN(swatch.data.sampleX) && !isNaN(swatch.data.sampleY)}
+            {@const scaleX = sourceImage.width / imgCanvas.width}
+            {@const scaleY = sourceImage.height / imgCanvas.height}
+            {@const sampleX = Math.round(sourceImage.x + (swatch.data.sampleX * scaleX))}
+            {@const sampleY = Math.round(sourceImage.y + (swatch.data.sampleY * scaleY))}
+            {@const sampleRadius = Math.max(4, Math.round((sampleSize * scaleX) / 2))}
+
+            <!-- Connection Line -->
+            <svg
+              class="absolute pointer-events-none"
+              style="
+                left: 0;
+                top: 0;
+                width: 100%;
+                height: 100%;
+                z-index: 50;
+              "
+            >
+              <defs>
+                <marker id="arrowhead-{i}" markerWidth="6" markerHeight="4" refX="5" refY="2" orient="auto">
+                  <polygon points="0 0, 6 2, 0 4" fill="{swatch.data.hexColor}" stroke="#333" stroke-width="0.5"/>
+                </marker>
+              </defs>
+              <line
+                x1="{swatchCenterX}"
+                y1="{swatchCenterY}"
+                x2="{sampleX}"
+                y2="{sampleY}"
+                stroke="{swatch.data.hexColor}"
+                stroke-width="2"
+                stroke-dasharray="3,3"
+                opacity="0.7"
+                marker-end="url(#arrowhead-{i})"
+              />
+            </svg>
+
+            <!-- Sample Location Circle (only for multi-pixel samples) -->
+            {#if sampleSize && sampleSize > 1}
+              <div
+                class="absolute pointer-events-none border-2 rounded-full bg-white/80 backdrop-blur-sm"
+                style="
+                  left: {sampleX - sampleRadius}px;
+                  top: {sampleY - sampleRadius}px;
+                  width: {sampleRadius * 2}px;
+                  height: {sampleRadius * 2}px;
+                  border-color: {swatch.data.hexColor};
+                  z-index: 60;
+                  box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+                "
+              >
+                <div
+                  class="w-full h-full rounded-full border"
+                  style="border-color: {swatch.data.hexColor}; opacity: 0.3;"
+                ></div>
+                <!-- Size indicator text -->
+                <div
+                  class="absolute inset-0 flex items-center justify-center text-xs font-bold"
+                  style="color: {swatch.data.hexColor}; text-shadow: 1px 1px 2px rgba(255,255,255,0.8);"
+                >
+                  {sampleSize}
+                </div>
+              </div>
+            {/if}
+          {/if}
+        {/if}
+      {/if}
     {/each}
 
     <!-- Color Swatches (positioned within artboard) -->
