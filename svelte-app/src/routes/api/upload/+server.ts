@@ -1,8 +1,10 @@
-import { json } from '@sveltejs/kit';
+import { json, error } from '@sveltejs/kit';
 import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import sharp from 'sharp';
+import { pool } from '$lib/server/auth';
+import type { RequestHandler } from './$types';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -11,7 +13,12 @@ const __dirname = path.dirname(__filename);
 const uploadsDir = path.join(__dirname, '../../../../../uploads');
 const thumbsDir = path.join(__dirname, '../../../../../uploads/thumbs');
 
-export async function POST({ request }) {
+export const POST: RequestHandler = async ({ request, locals }) => {
+  // Check if user is authenticated
+  if (!locals.user) {
+    throw error(401, 'Authentication required');
+  }
+
   try {
     // Ensure uploads and thumbnails directories exist
     if (!fs.existsSync(uploadsDir)) {
@@ -22,7 +29,7 @@ export async function POST({ request }) {
     }
 
     const formData = await request.formData();
-    const file = formData.get('image');
+    const file = formData.get('image') as File;
 
     if (!file || !file.size) {
       return json({ status: 'error', message: 'No file uploaded.' }, { status: 400 });
@@ -78,6 +85,17 @@ export async function POST({ request }) {
     fs.copyFileSync(filePath, staticFilePath);
     fs.copyFileSync(thumbFilePath, staticThumbPath);
 
+    // Save to database with user association
+    const connection = await pool.getConnection();
+    try {
+      await connection.execute(
+        'INSERT INTO images (file_path, user_id) VALUES (?, ?)',
+        [`uploads/${filename}`, locals.user.id]
+      );
+    } finally {
+      connection.release();
+    }
+
     return json({
       status: 'success',
       message: 'File uploaded successfully.',
@@ -86,8 +104,8 @@ export async function POST({ request }) {
       size: file.size
     });
 
-  } catch (error) {
-    console.error('Upload error:', error);
+  } catch (err) {
+    console.error('Upload error:', err);
     return json({ status: 'error', message: 'Upload failed.' }, { status: 500 });
   }
-}
+};
