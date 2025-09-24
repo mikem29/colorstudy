@@ -1820,35 +1820,6 @@
     }
   }}
 >
-  <!-- Controls Panel (top right) -->
-  <div class="fixed top-4 right-4 bg-white rounded-xl shadow-2xl border border-gray-200 p-4 z-50 space-y-3" onclick={(e) => e.stopPropagation()}>
-    <!-- Sampling Size Selector -->
-    <div class="flex items-center space-x-2">
-      <label class="text-sm font-medium text-gray-700 whitespace-nowrap">Sample Size:</label>
-      <select
-        bind:value={samplingSize}
-        class="px-3 py-1.5 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-      >
-        <option value={1}>1x1 (Point)</option>
-        <option value={3}>3x3</option>
-        <option value={5}>5x5</option>
-        <option value={11}>11x11</option>
-        <option value={31}>31x31</option>
-      </select>
-    </div>
-
-    <!-- Color Format Selector -->
-    <div class="flex items-center space-x-2">
-      <label class="text-sm font-medium text-gray-700 whitespace-nowrap">Color Mode:</label>
-      <select
-        bind:value={colorFormat}
-        class="px-3 py-1.5 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-      >
-        <option value="RGB">RGB</option>
-        <option value="CMYK">CMYK</option>
-      </select>
-    </div>
-  </div>
 
   <!-- Professional Design Toolbar -->
   <div class="fixed left-4 top-1/2 transform -translate-y-1/2 bg-white rounded-xl shadow-2xl border border-gray-200 p-2 z-50" onclick={(e) => e.stopPropagation()}>
