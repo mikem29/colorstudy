@@ -1253,6 +1253,7 @@
       posY,
       sampleX,
       sampleY,
+      sampleSize: samplingSize,
       imageId: imageId // Use the imageId passed as parameter
     };
 
@@ -1285,6 +1286,7 @@
           pos_y: posY,
           sample_x: sampleX,
           sample_y: sampleY,
+          sample_size: samplingSize,
           artboard_id: artboardId // Also include artboard ID
         }])
       });
@@ -1362,7 +1364,8 @@
         pos_x: swatch.data.posX,
         pos_y: swatch.data.posY,
         sample_x: swatch.data.sampleX,
-        sample_y: swatch.data.sampleY
+        sample_y: swatch.data.sampleY,
+        sample_size: swatch.data.sampleSize || 1
       }));
 
     if (swatchData.length === 0) {

@@ -89,7 +89,7 @@
     <!-- Header -->
     <div class="bg-white border-b border-gray-200 px-4 py-3 flex items-center justify-between">
       <div class="flex items-center space-x-4">
-        <a href="/" class="text-gray-600 hover:text-gray-900">
+        <a href="/dashboard" class="text-gray-600 hover:text-gray-900">
           <i class="fas fa-arrow-left"></i>
         </a>
         <h1 class="text-xl font-bold">{artboard.name}</h1>
