@@ -2025,8 +2025,20 @@
 
       const result = await response.json();
       if (result.status === 'success') {
+        // Store the image ID for cleanup before clearing selectedImageId
+        const deletedImageId = selectedImageId;
+
         // Remove from artboardImages array
-        artboardImages = artboardImages.filter(img => img.id !== selectedImageId);
+        artboardImages = artboardImages.filter(img => img.id !== deletedImageId);
+
+        // Remove all swatches associated with the deleted image
+        swatchPlaceholders = swatchPlaceholders.map(swatch => {
+          if (swatch.filled && swatch.data.imageId === deletedImageId) {
+            console.log('Removing swatch associated with deleted image:', deletedImageId);
+            return { filled: false, data: null };
+          }
+          return swatch;
+        });
 
         // Clear selection
         selectedImageId = null;
@@ -2034,9 +2046,9 @@
         isImageSelected = false;
 
         // Clean up canvas reference
-        imageCanvases.delete(selectedImageId);
+        imageCanvases.delete(deletedImageId);
 
-        console.log('Image deleted successfully');
+        console.log('Image and associated swatches deleted successfully');
 
         // Trigger callback to parent if provided
         if (onSwatchCreated) {
