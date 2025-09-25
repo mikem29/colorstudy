@@ -9,6 +9,7 @@ module.exports = {
     env: {
       NODE_ENV: 'production',
       PORT: 3006,
+      BODY_SIZE_LIMIT: 16777216, // 16MB in bytes
       MYSQL_HOST: 'localhost',
       MYSQL_PORT: 3308,
       MYSQL_USER: 'story_user',
