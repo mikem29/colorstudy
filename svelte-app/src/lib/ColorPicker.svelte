@@ -1031,6 +1031,10 @@
       const result = await response.json();
       if (result.status === 'success') {
         console.log('Image position saved successfully');
+
+        // Recreate canvas for color picker after position change
+        console.log('Recreating canvas after position change for image:', selectedImageId);
+        await createCanvasForImage(selectedImage);
       } else {
         console.error('Failed to save image position:', result.message);
       }
@@ -1064,6 +1068,9 @@
       const result = await response.json();
       if (result.status === 'success') {
         console.log('Image size saved successfully');
+        // Recreate canvas for color picker after size change
+        console.log('Recreating canvas after size change for image:', selectedImageId);
+        await createCanvasForImage(selectedImage);
       } else {
         console.error('Failed to save image size:', result.message);
       }
