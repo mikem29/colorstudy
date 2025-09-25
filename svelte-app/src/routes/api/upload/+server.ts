@@ -7,9 +7,10 @@ import { pool } from '$lib/server/auth';
 import type { RequestHandler } from './$types';
 
 // Define upload directories based on environment
+// User uploads should be persistent, not in static/build
 const UPLOAD_BASE = dev
-  ? path.resolve(process.cwd(), 'static/uploads')
-  : '/var/www/huemixy/static/uploads';
+  ? path.resolve(process.cwd(), 'uploads')
+  : '/var/www/huemixy/user-uploads';
 
 const uploadsDir = UPLOAD_BASE;
 const thumbsDir = path.join(UPLOAD_BASE, 'thumbs');

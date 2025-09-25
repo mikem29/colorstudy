@@ -21,7 +21,9 @@
       "Bash(npm run build:*)",
       "Bash(./deploy.sh)",
       "Bash(ssh:*)",
-      "Bash(cat:*)"
+      "Bash(cat:*)",
+      "Read(//Volumes/X9 Pro/Projects/MicroSass/Story/**)",
+      "Read(//Volumes/**)"
     ],
     "deny": [],
     "ask": []
