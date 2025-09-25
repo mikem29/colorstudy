@@ -28,8 +28,7 @@ export const POST: RequestHandler = async ({ request, locals }) => {
           !swatch.hex_color ||
           typeof swatch.red !== 'number' ||
           typeof swatch.green !== 'number' ||
-          typeof swatch.blue !== 'number' ||
-          !swatch.description?.trim()
+          typeof swatch.blue !== 'number'
         ) {
           await connection.rollback();
           return json({ status: 'error', message: 'Invalid input data in one or more swatches.' }, { status: 400 });
@@ -41,7 +40,7 @@ export const POST: RequestHandler = async ({ request, locals }) => {
           swatch.green,
           swatch.blue,
           swatch.cmyk || '',
-          swatch.description,
+          swatch.description || '',
           swatch.image_id || null,
           swatch.pos_x || 0,
           swatch.pos_y || 0,
@@ -91,5 +90,47 @@ export const GET: RequestHandler = async ({ locals, url }) => {
   } catch (err) {
     console.error('Error fetching swatches:', err);
     return json({ status: 'error', message: 'Failed to fetch swatches.' }, { status: 500 });
+  }
+};
+
+export const DELETE: RequestHandler = async ({ request, locals }) => {
+  // Check if user is authenticated
+  if (!locals.user) {
+    throw error(401, 'Authentication required');
+  }
+
+  try {
+    const deleteData = await request.json();
+
+    if (!deleteData.hex_color || (!deleteData.image_id && deleteData.image_id !== null)) {
+      return json({ status: 'error', message: 'Missing required fields for deletion.' }, { status: 400 });
+    }
+
+    const connection = await pool.getConnection();
+
+    try {
+      // Delete swatch by matching hex_color, image_id, and position (and only for the logged-in user)
+      const [result] = await connection.execute(
+        'DELETE FROM swatches WHERE hex_color = ? AND image_id = ? AND pos_x = ? AND pos_y = ? AND user_id = ?',
+        [
+          deleteData.hex_color,
+          deleteData.image_id || null,
+          deleteData.pos_x || 0,
+          deleteData.pos_y || 0,
+          locals.user.id
+        ]
+      );
+
+      if (result.affectedRows > 0) {
+        return json({ status: 'success', message: 'Swatch deleted successfully.' });
+      } else {
+        return json({ status: 'error', message: 'Swatch not found or you do not have permission to delete it.' }, { status: 404 });
+      }
+    } finally {
+      connection.release();
+    }
+  } catch (err) {
+    console.error('Error deleting swatch:', err);
+    return json({ status: 'error', message: 'Server error occurred.' }, { status: 500 });
   }
 };

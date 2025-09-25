@@ -125,6 +125,9 @@
   let ctx;
   let overlayCtx;
   let imageCanvases = new Map(); // Map of imageId -> canvas element
+
+  // Track canvas loading state to trigger connection line re-render
+  let canvasLoadState = $state(0);
   let colorPreview;
 
 
@@ -202,6 +205,13 @@
           originalTool = currentTool;
           currentTool = 'hand';
         }
+      }
+
+      // Handle delete key for selected items
+      if (event.key === 'Delete' || event.key === 'Backspace') {
+        event.preventDefault();
+        handleDeleteKey();
+        return;
       }
 
       // Handle tool keyboard shortcuts
@@ -605,10 +615,110 @@
     return artboardImages.find(img => img.id === selectedImageId);
   }
 
+  function findNextAvailableGridPosition() {
+    const SWATCH_WIDTH = 2.5 * 96; // 2.5 inches in pixels
+    const SWATCH_HEIGHT = 1.5 * 96; // 1.5 inches in pixels
+    const GRID_SPACING = 10; // 10px column spacing
+    const MARGIN = 20; // Margin from artboard edges
+
+    // Get artboard dimensions in pixels
+    const artboardWidth = artboardWidthInches * 96; // Convert inches to pixels at 96 DPI
+    const artboardHeight = artboardHeightInches * 96;
+
+    // Calculate grid dimensions
+    const gridCellWidth = SWATCH_WIDTH + GRID_SPACING;
+    const gridCellHeight = SWATCH_HEIGHT + GRID_SPACING;
+
+    // Create occupancy grid for the entire artboard
+    const cols = Math.floor((artboardWidth - 2 * MARGIN) / gridCellWidth);
+    const rows = Math.floor((artboardHeight - 2 * MARGIN) / gridCellHeight);
+
+    // Initialize grid as empty
+    const occupancyGrid = Array(rows).fill().map(() => Array(cols).fill(false));
+
+    // Mark occupied positions by existing swatches
+    swatchPlaceholders.forEach(swatch => {
+      if (swatch.filled) {
+        const swatchX = swatch.data.posX !== undefined ? swatch.data.posX : 0;
+        const swatchY = swatch.data.posY !== undefined ? swatch.data.posY : 0;
+
+        // Convert swatch position to grid coordinates
+        const gridCol = Math.floor((swatchX - MARGIN) / gridCellWidth);
+        const gridRow = Math.floor((swatchY - MARGIN) / gridCellHeight);
+
+        // Mark as occupied if within grid bounds
+        if (gridRow >= 0 && gridRow < rows && gridCol >= 0 && gridCol < cols) {
+          occupancyGrid[gridRow][gridCol] = true;
+        }
+      }
+    });
+
+    // Mark occupied positions by images
+    artboardImages.forEach(image => {
+      console.log('Checking image collision:', {
+        imagePos: { x: image.x, y: image.y, w: image.width, h: image.height },
+        artboardSize: { w: artboardWidth, h: artboardHeight }
+      });
+
+      const imgLeft = image.x;
+      const imgRight = image.x + image.width;
+      const imgTop = image.y;
+      const imgBottom = image.y + image.height;
+
+      // Check which grid cells this image overlaps
+      for (let row = 0; row < rows; row++) {
+        for (let col = 0; col < cols; col++) {
+          const gridLeft = MARGIN + col * gridCellWidth;
+          const gridRight = gridLeft + SWATCH_WIDTH;
+          const gridTop = MARGIN + row * gridCellHeight;
+          const gridBottom = gridTop + SWATCH_HEIGHT;
+
+          // More explicit overlap detection
+          const horizontalOverlap = gridRight > imgLeft && gridLeft < imgRight;
+          const verticalOverlap = gridBottom > imgTop && gridTop < imgBottom;
+          const overlaps = horizontalOverlap && verticalOverlap;
+
+          if (overlaps) {
+            console.log('Grid cell blocked by image:', {
+              gridCell: { row, col, left: gridLeft, top: gridTop, right: gridRight, bottom: gridBottom },
+              image: { left: imgLeft, top: imgTop, right: imgRight, bottom: imgBottom }
+            });
+            occupancyGrid[row][col] = true;
+          }
+        }
+      }
+    });
+
+    // Find the first available position (left to right, top to bottom)
+    console.log('Searching for available grid position in', rows, 'x', cols, 'grid');
+    for (let row = 0; row < rows; row++) {
+      for (let col = 0; col < cols; col++) {
+        if (!occupancyGrid[row][col]) {
+          const position = {
+            x: MARGIN + col * gridCellWidth,
+            y: MARGIN + row * gridCellHeight
+          };
+          console.log('Found available position:', { row, col, position });
+          return position;
+        }
+      }
+    }
+
+    // If no space available, place at origin (fallback - overlapping will be handled later)
+    console.log('No available grid position found, using fallback');
+    return {
+      x: MARGIN,
+      y: MARGIN
+    };
+  }
+
   // Action to draw image data onto canvas for eyedropper functionality
   function drawImageOnCanvas(canvas, image) {
     let currentImage = null;
     let isLoaded = false;
+
+    // Store canvas reference immediately when action is created
+    imageCanvases.set(image.id, canvas);
 
     function loadAndDrawImage() {
       // Validate dimensions before setting
@@ -640,10 +750,14 @@
           ctx.clearRect(0, 0, canvas.width, canvas.height);
           ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
 
-          // Store canvas reference for this image
+          // Update canvas reference to ensure it's current
           imageCanvases.set(image.id, canvas);
           currentImage = { src: image.src, width: image.width, height: image.height };
           isLoaded = true;
+          console.log('Canvas loaded and stored for image ID:', image.id);
+
+          // Trigger connection line re-render by updating state
+          canvasLoadState++;
         };
 
         img.onerror = function() {
@@ -915,7 +1029,7 @@
       // Get the canvas for the hovered image
       const hoveredCanvas = imageCanvases.get(hoveredImageId);
       if (!hoveredCanvas) {
-        console.log('Hover: Canvas not found for image ID:', hoveredImageId);
+        console.log('Hover: Canvas not found for image ID:', hoveredImageId, 'Available canvases:', Array.from(imageCanvases.keys()));
         updateToolbarColorPreview('#000000', 0, 0, 0);
         return;
       }
@@ -1203,26 +1317,26 @@
     pendingSwatchData = null;
   }
 
-  function handleSubmit() {
-    if (description.trim() && pendingClickData) {
-      // Create the swatch data but don't place it yet
-      const { c, m, y, k } = rgbToCmyk(pendingClickData.red, pendingClickData.green, pendingClickData.blue);
-      const cmykString = `C:${c}%, M:${m}%, Y:${y}%, K:${k}%`;
+  async function handleSubmit() {
+    if (pendingClickData) {
+      // Find next available grid position
+      const nextPosition = findNextAvailableGridPosition();
 
-      pendingSwatchData = {
-        hexColor: pendingClickData.hexColor,
-        red: pendingClickData.red,
-        green: pendingClickData.green,
-        blue: pendingClickData.blue,
-        cmyk: cmykString,
-        description: description.trim(),
-        sampleX: pendingClickData.sampleX,
-        sampleY: pendingClickData.sampleY,
-        imageId: pendingClickData.imageId
-      };
+      // Create swatch immediately at the grid position
+      await updateSwatch(
+        pendingClickData.hexColor,
+        pendingClickData.red,
+        pendingClickData.green,
+        pendingClickData.blue,
+        description.trim(), // Optional description
+        nextPosition.x,
+        nextPosition.y,
+        pendingClickData.sampleX,
+        pendingClickData.sampleY,
+        pendingClickData.imageId
+      );
 
-      // Enter placement mode
-      isPlacingSwatch = true;
+      // Clean up
       showModal = false;
       description = '';
       pendingClickData = null;
@@ -1796,6 +1910,93 @@
       saveImageSize();
     }
   }
+
+  function handleDeleteKey() {
+    // Delete selected image
+    if (selectedImageId && selectedImageIndex !== -1) {
+      deleteSelectedImage();
+      return;
+    }
+
+    // Delete selected swatch
+    if (selectedSwatchIndex !== -1 && swatchPlaceholders[selectedSwatchIndex]?.filled) {
+      deleteSelectedSwatch();
+      return;
+    }
+  }
+
+  async function deleteSelectedImage() {
+    if (!selectedImageId || selectedImageIndex === -1) return;
+
+    try {
+      const response = await fetch(`/api/images/${selectedImageId}`, {
+        method: 'DELETE'
+      });
+
+      const result = await response.json();
+      if (result.status === 'success') {
+        // Remove from artboardImages array
+        artboardImages = artboardImages.filter(img => img.id !== selectedImageId);
+
+        // Clear selection
+        selectedImageId = null;
+        selectedImageIndex = -1;
+        isImageSelected = false;
+
+        // Clean up canvas reference
+        imageCanvases.delete(selectedImageId);
+
+        console.log('Image deleted successfully');
+
+        // Trigger callback to parent if provided
+        if (onSwatchCreated) {
+          onSwatchCreated(); // Reuse this callback to trigger reload
+        }
+      } else {
+        console.error('Failed to delete image:', result.message);
+      }
+    } catch (error) {
+      console.error('Error deleting image:', error);
+    }
+  }
+
+  async function deleteSelectedSwatch() {
+    if (selectedSwatchIndex === -1 || !swatchPlaceholders[selectedSwatchIndex]?.filled) return;
+
+    const swatch = swatchPlaceholders[selectedSwatchIndex];
+
+    try {
+      // Find the swatch ID by matching properties - we need to query the database
+      // Since we don't store the swatch ID in the component, we'll identify it by unique properties
+      const response = await fetch('/api/swatches', {
+        method: 'DELETE', // We'll need to modify the swatches API to support deletion by properties
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          hex_color: swatch.data.hexColor,
+          image_id: swatch.data.imageId,
+          pos_x: swatch.data.posX,
+          pos_y: swatch.data.posY
+        })
+      });
+
+      const result = await response.json();
+      if (result.status === 'success') {
+        // Remove from swatchPlaceholders array
+        swatchPlaceholders[selectedSwatchIndex] = { filled: false, data: null };
+
+        // Clear selection
+        selectedSwatchIndex = -1;
+
+        console.log('Swatch deleted successfully');
+      } else {
+        console.error('Failed to delete swatch:', result.message);
+      }
+    } catch (error) {
+      console.error('Error deleting swatch:', error);
+    }
+  }
 </script>
 
 <style>
@@ -1990,7 +2191,7 @@
             "
           />
 
-          <!-- Hidden canvas for eyedropper functionality only -->
+          <!-- Hidden canvas for eyedropper functionality -->
           {#if index === 0}
             <canvas
               bind:this={canvas}
@@ -2078,7 +2279,7 @@
     {#each swatchPlaceholders as swatch, i}
       {#if swatch.filled && swatch.data.sampleX != null && swatch.data.sampleY != null && swatch.data.imageId}
         {@const sourceImage = artboardImages.find(img => img.id === swatch.data.imageId)}
-        {#if sourceImage}
+        {#if sourceImage && !sourceImage.needsOriginalDimensions}
           {@const swatchPos = {
             x: swatch.data.posX !== undefined && swatch.data.posX !== null ? swatch.data.posX : getSwatchPosition(i).x,
             y: swatch.data.posY !== undefined && swatch.data.posY !== null ? swatch.data.posY : getSwatchPosition(i).y
@@ -2087,12 +2288,21 @@
           {@const swatchCenterY = swatchPos.y + (1.5 * 96) / 2}
           {@const imgCanvas = imageCanvases.get(swatch.data.imageId)}
           {@const sampleSize = swatch.data.sampleSize || 1}
+          {@const _ = canvasLoadState} <!-- Force reactivity when canvases load -->
 
-          {#if imgCanvas && sourceImage.width > 0 && sourceImage.height > 0 && imgCanvas.width > 0 && imgCanvas.height > 0 && typeof swatch.data.sampleX === 'number' && typeof swatch.data.sampleY === 'number' && !isNaN(swatch.data.sampleX) && !isNaN(swatch.data.sampleY)}
+          {#if imgCanvas && sourceImage.width > 0 && sourceImage.height > 0 && imgCanvas.width > 0 && imgCanvas.height > 0 && typeof swatch.data.sampleX === 'number' && typeof swatch.data.sampleY === 'number' && !isNaN(swatch.data.sampleX) && !isNaN(swatch.data.sampleY) && sourceImage.originalWidth && sourceImage.originalHeight}
             {@const scaleX = sourceImage.width / imgCanvas.width}
             {@const scaleY = sourceImage.height / imgCanvas.height}
             {@const sampleX = Math.round(sourceImage.x + (swatch.data.sampleX * scaleX))}
             {@const sampleY = Math.round(sourceImage.y + (swatch.data.sampleY * scaleY))}
+            {@const debugInfo = console.log('Connection line calc:', {
+              imageId: swatch.data.imageId,
+              sourceImage: { x: sourceImage.x, y: sourceImage.y, w: sourceImage.width, h: sourceImage.height },
+              canvas: { w: imgCanvas.width, h: imgCanvas.height },
+              sampleData: { x: swatch.data.sampleX, y: swatch.data.sampleY },
+              scales: { x: scaleX, y: scaleY },
+              finalSample: { x: sampleX, y: sampleY }
+            })}
             {@const sampleRadius = Math.max(4, Math.round((sampleSize * scaleX) / 2))}
 
             <!-- Connection Line -->
@@ -2189,7 +2399,9 @@
               "
             ></div>
             <div style="flex: 1; display: flex; flex-direction: column; justify-content: center;">
-              <p class="font-medium truncate" style="font-size: 10pt; color: #111; line-height: 1.2;">{swatch.data.description}</p>
+              {#if swatch.data.description && swatch.data.description.trim()}
+                <p class="font-medium truncate" style="font-size: 10pt; color: #111; line-height: 1.2;">{swatch.data.description}</p>
+              {/if}
               <p class="font-mono" style="font-size: 8pt; color: #666; line-height: 1.1;">
                 {colorFormat === 'RGB'
                   ? `RGB(${swatch.data.red}, ${swatch.data.green}, ${swatch.data.blue})`
@@ -2229,7 +2441,7 @@
           <input
             type="text"
             bind:value={description}
-            placeholder="Color reference note..."
+            placeholder="Color reference note (optional)..."
             class="w-full px-4 py-3 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-center"
             autofocus
           />
@@ -2311,7 +2523,7 @@
 <input
   type="file"
   id="image-upload-input"
-  accept="image/*"
+  accept="image/jpeg,image/jpg,image/png,image/gif,image/webp"
   onchange={handleImageUpload}
   class="hidden"
 />

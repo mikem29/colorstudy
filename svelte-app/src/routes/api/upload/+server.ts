@@ -38,9 +38,9 @@ export const POST: RequestHandler = async ({ request, locals }) => {
     }
 
     // Validate file type
-    const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/gif'];
+    const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'image/webp'];
     if (!allowedTypes.includes(file.type)) {
-      return json({ status: 'error', message: 'Invalid file type. Only JPG, PNG, and GIF are allowed.' }, { status: 400 });
+      return json({ status: 'error', message: 'Invalid file type. Only JPG, PNG, GIF, and WebP are allowed.' }, { status: 400 });
     }
 
     // Validate file size (15MB limit)
