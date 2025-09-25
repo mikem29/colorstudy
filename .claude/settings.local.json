@@ -15,7 +15,12 @@
       "Read(//c/Projects/**)",
       "Bash(curl:*)",
       "WebSearch",
-      "Bash(winpty docker exec:*)"
+      "Bash(winpty docker exec:*)",
+      "Bash(cd:*)",
+      "Bash(echo $NODE_ENV)",
+      "Bash(npm run build:*)",
+      "Bash(./deploy.sh)",
+      "Bash(ssh:*)"
     ],
     "deny": [],
     "ask": []
