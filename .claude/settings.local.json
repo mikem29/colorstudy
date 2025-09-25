@@ -20,7 +20,8 @@
       "Bash(echo $NODE_ENV)",
       "Bash(npm run build:*)",
       "Bash(./deploy.sh)",
-      "Bash(ssh:*)"
+      "Bash(ssh:*)",
+      "Bash(cat:*)"
     ],
     "deny": [],
     "ask": []

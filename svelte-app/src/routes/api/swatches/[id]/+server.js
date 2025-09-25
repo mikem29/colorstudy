@@ -1,19 +1,11 @@
-import mysql from 'mysql2/promise';
 import { json } from '@sveltejs/kit';
-
-const dbConfig = {
-  host: 'localhost',
-  port: 3306,
-  user: 'm29user',
-  password: 'm29Pa55word',
-  database: 'colorstudy'
-};
+import { getConnection } from '$lib/server/db';
 
 export async function GET({ params }) {
   try {
     const { id } = params;
 
-    const connection = await mysql.createConnection(dbConfig);
+    const connection = await getConnection();
 
     const [rows] = await connection.execute(
       'SELECT * FROM swatches WHERE image_id = ? ORDER BY created_at ASC',
@@ -33,7 +25,7 @@ export async function DELETE({ params }) {
   try {
     const { id } = params;
 
-    const connection = await mysql.createConnection(dbConfig);
+    const connection = await getConnection();
 
     const [result] = await connection.execute('DELETE FROM swatches WHERE id = ?', [id]);
 

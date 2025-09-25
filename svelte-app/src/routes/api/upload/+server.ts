@@ -1,17 +1,18 @@
 import { json, error } from '@sveltejs/kit';
+import { dev } from '$app/environment';
 import fs from 'fs';
 import path from 'path';
-import { fileURLToPath } from 'url';
 import sharp from 'sharp';
 import { pool } from '$lib/server/auth';
 import type { RequestHandler } from './$types';
 
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
+// Define upload directories based on environment
+const UPLOAD_BASE = dev
+  ? path.resolve(process.cwd(), 'static/uploads')
+  : '/var/www/huemixy/static/uploads';
 
-// Create uploads directory outside of Svelte deployment
-const uploadsDir = path.join(__dirname, '../../../../../uploads');
-const thumbsDir = path.join(__dirname, '../../../../../uploads/thumbs');
+const uploadsDir = UPLOAD_BASE;
+const thumbsDir = path.join(UPLOAD_BASE, 'thumbs');
 
 export const POST: RequestHandler = async ({ request, locals }) => {
   // Check if user is authenticated
@@ -68,22 +69,7 @@ export const POST: RequestHandler = async ({ request, locals }) => {
       .jpeg({ quality: 85 })
       .toFile(thumbFilePath);
 
-    // Also copy to static directory for serving
-    const staticUploadsDir = path.join(__dirname, '../../../../static/uploads');
-    const staticThumbsDir = path.join(__dirname, '../../../../static/uploads/thumbs');
-
-    if (!fs.existsSync(staticUploadsDir)) {
-      fs.mkdirSync(staticUploadsDir, { recursive: true });
-    }
-    if (!fs.existsSync(staticThumbsDir)) {
-      fs.mkdirSync(staticThumbsDir, { recursive: true });
-    }
-
-    const staticFilePath = path.join(staticUploadsDir, filename);
-    const staticThumbPath = path.join(staticThumbsDir, filename);
-
-    fs.copyFileSync(filePath, staticFilePath);
-    fs.copyFileSync(thumbFilePath, staticThumbPath);
+    // No need to copy - we're already saving directly to static folder
 
     // Save to database with user association
     const connection = await pool.getConnection();

@@ -1,19 +1,11 @@
-import mysql from 'mysql2/promise';
 import { json } from '@sveltejs/kit';
-
-const dbConfig = {
-  host: 'localhost',
-  port: 3306,
-  user: 'm29user',
-  password: 'm29Pa55word',
-  database: 'colorstudy'
-};
+import { getConnection } from '$lib/server/db';
 
 // Get all swatches for an artboard
 export async function GET({ params }) {
   try {
     const { id } = params;
-    const connection = await mysql.createConnection(dbConfig);
+    const connection = await getConnection();
 
     // Get all swatches for this artboard (both direct artboard_id and via image_id)
     const [rows] = await connection.execute(`

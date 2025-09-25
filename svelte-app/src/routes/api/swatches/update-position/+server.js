@@ -1,13 +1,5 @@
-import mysql from 'mysql2/promise';
 import { json } from '@sveltejs/kit';
-
-const dbConfig = {
-  host: 'localhost',
-  port: 3306,
-  user: 'm29user',
-  password: 'm29Pa55word',
-  database: 'colorstudy'
-};
+import { getConnection } from '$lib/server/db';
 
 export async function POST({ request }) {
   try {
@@ -17,7 +9,7 @@ export async function POST({ request }) {
       return json({ status: 'error', message: 'Missing required fields.' }, { status: 400 });
     }
 
-    const connection = await mysql.createConnection(dbConfig);
+    const connection = await getConnection();
 
     const [result] = await connection.execute(
       'UPDATE swatches SET pos_x = ?, pos_y = ? WHERE hex_color = ? AND image_id = ?',

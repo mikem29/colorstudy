@@ -1,19 +1,11 @@
-import mysql from 'mysql2/promise';
 import { json } from '@sveltejs/kit';
-
-const dbConfig = {
-  host: 'localhost',
-  port: 3306,
-  user: 'm29user',
-  password: 'm29Pa55word',
-  database: 'colorstudy'
-};
+import { getConnection } from '$lib/server/db';
 
 export async function GET({ params }) {
   try {
     const { id } = params;
 
-    const connection = await mysql.createConnection(dbConfig);
+    const connection = await getConnection();
 
     const [rows] = await connection.execute(
       'SELECT id, file_path, uploaded_at, SUBSTRING_INDEX(file_path, \'/\', -1) as filename, artboard_width_inches, artboard_height_inches, image_x, image_y, image_width, image_height FROM images WHERE id = ?',
@@ -43,7 +35,7 @@ export async function PATCH({ params, request }) {
     const { id } = params;
     const updates = await request.json();
 
-    const connection = await mysql.createConnection(dbConfig);
+    const connection = await getConnection();
 
     // Build dynamic update query based on provided fields
     const updateFields = [];
@@ -95,7 +87,7 @@ export async function DELETE({ params }) {
   try {
     const { id } = params;
 
-    const connection = await mysql.createConnection(dbConfig);
+    const connection = await getConnection();
 
     // Start transaction to ensure both deletions succeed or fail together
     await connection.beginTransaction();

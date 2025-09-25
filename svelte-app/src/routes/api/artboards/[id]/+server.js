@@ -1,18 +1,10 @@
-import mysql from 'mysql2/promise';
 import { json } from '@sveltejs/kit';
-
-const dbConfig = {
-  host: 'localhost',
-  port: 3306,
-  user: 'm29user',
-  password: 'm29Pa55word',
-  database: 'colorstudy'
-};
+import { getConnection } from '$lib/server/db';
 
 // Get artboard with images and swatches
 export async function GET({ params }) {
   try {
-    const connection = await mysql.createConnection(dbConfig);
+    const connection = await getConnection();
     const { id } = params;
 
     // Get artboard details
@@ -60,7 +52,7 @@ export async function POST({ params, request }) {
     const { id } = params;
     const { filename, image_x = 0, image_y = 0, image_width, image_height } = await request.json();
 
-    const connection = await mysql.createConnection(dbConfig);
+    const connection = await getConnection();
 
     const [result] = await connection.execute(
       'INSERT INTO images (artboard_id, file_path, image_x, image_y, image_width, image_height) VALUES (?, ?, ?, ?, ?, ?)',
@@ -86,7 +78,7 @@ export async function DELETE({ params }) {
     const { id } = params;
     console.log('DELETE API - Deleting artboard ID:', id);
 
-    const connection = await mysql.createConnection(dbConfig);
+    const connection = await getConnection();
 
     // Delete related data first - order matters due to foreign key constraints
     // First delete swatches that might reference images
