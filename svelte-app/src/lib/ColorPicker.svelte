@@ -637,10 +637,14 @@
     const occupancyGrid = Array(rows).fill().map(() => Array(cols).fill(false));
 
     // Mark occupied positions by existing swatches
-    swatchPlaceholders.forEach(swatch => {
+    let existingSwatchCount = 0;
+    swatchPlaceholders.forEach((swatch, index) => {
       if (swatch.filled) {
+        existingSwatchCount++;
         const swatchX = swatch.data.posX !== undefined ? swatch.data.posX : 0;
         const swatchY = swatch.data.posY !== undefined ? swatch.data.posY : 0;
+
+        console.log(`Existing swatch ${index} at position:`, { x: swatchX, y: swatchY });
 
         // Convert swatch position to grid coordinates
         const gridCol = Math.floor((swatchX - MARGIN) / gridCellWidth);
@@ -648,10 +652,13 @@
 
         // Mark as occupied if within grid bounds
         if (gridRow >= 0 && gridRow < rows && gridCol >= 0 && gridCol < cols) {
+          console.log(`Marking grid cell [${gridRow}, ${gridCol}] as occupied`);
           occupancyGrid[gridRow][gridCol] = true;
         }
       }
     });
+
+    console.log(`Found ${existingSwatchCount} existing swatches to avoid`);
 
     // Mark occupied positions by images
     artboardImages.forEach(image => {
@@ -1321,6 +1328,7 @@
     if (pendingClickData) {
       // Find next available grid position
       const nextPosition = findNextAvailableGridPosition();
+      console.log('handleSubmit: Grid position calculated:', nextPosition);
 
       // Create swatch immediately at the grid position
       await updateSwatch(
@@ -1335,6 +1343,8 @@
         pendingClickData.sampleY,
         pendingClickData.imageId
       );
+
+      console.log('handleSubmit: Swatch created at position:', nextPosition.x, nextPosition.y);
 
       // Clean up
       showModal = false;
