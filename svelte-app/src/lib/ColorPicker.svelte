@@ -615,6 +615,74 @@
     return artboardImages.find(img => img.id === selectedImageId);
   }
 
+  async function createCanvasForImage(image) {
+    return new Promise((resolve, reject) => {
+      console.log('Creating manual canvas for image:', {
+        id: image.id,
+        src: image.src,
+        dimensions: { w: image.width, h: image.height, origW: image.originalWidth, origH: image.originalHeight }
+      });
+
+      // Create a hidden canvas element
+      const canvas = document.createElement('canvas');
+      canvas.style.display = 'none';
+      document.body.appendChild(canvas);
+
+      // Store canvas reference immediately
+      imageCanvases.set(image.id, canvas);
+
+      // Load and draw the image - try without crossOrigin first
+      const img = new Image();
+
+      img.onload = function() {
+        try {
+          console.log('Image loaded for manual canvas:', {
+            naturalSize: { w: img.naturalWidth, h: img.naturalHeight },
+            complete: img.complete
+          });
+
+          // Set canvas dimensions to original image size
+          canvas.width = img.naturalWidth;
+          canvas.height = img.naturalHeight;
+
+          const ctx = canvas.getContext('2d');
+          ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+          // Draw the image
+          ctx.drawImage(img, 0, 0);
+
+          // Test that canvas has actual image data
+          const testPixel = ctx.getImageData(Math.floor(canvas.width/2), Math.floor(canvas.height/2), 1, 1);
+          console.log('Manual canvas draw complete:', {
+            canvasSize: { w: canvas.width, h: canvas.height },
+            testPixelAtCenter: Array.from(testPixel.data),
+            imageComplete: img.complete
+          });
+
+          // Trigger canvas load state update
+          canvasLoadState++;
+
+          resolve(canvas);
+        } catch (error) {
+          console.error('Error drawing to manual canvas:', error);
+          reject(error);
+        }
+      };
+
+      img.onerror = function(e) {
+        console.error('Failed to load image for manual canvas:', {
+          src: image.src,
+          error: e
+        });
+        reject(new Error('Image load failed'));
+      };
+
+      // Set the source - this should trigger loading
+      console.log('Setting image src:', image.src);
+      img.src = image.src;
+    });
+  }
+
   function findNextAvailableGridPosition() {
     const SWATCH_WIDTH = 2.5 * 96; // 2.5 inches in pixels
     const SWATCH_HEIGHT = 1.5 * 96; // 1.5 inches in pixels
@@ -844,6 +912,10 @@
       // Add to artboard images array
       artboardImages = [...artboardImages, newImage];
 
+      // Manually create canvas for immediate color picking availability
+      console.log('Creating canvas manually for new image:', newImage.id);
+      await createCanvasForImage(newImage);
+
       // Auto-select the newly placed image
       selectedImageId = newImage.id;
       selectedImageIndex = artboardImages.length - 1;
@@ -1037,6 +1109,7 @@
       const hoveredCanvas = imageCanvases.get(hoveredImageId);
       if (!hoveredCanvas) {
         console.log('Hover: Canvas not found for image ID:', hoveredImageId, 'Available canvases:', Array.from(imageCanvases.keys()));
+        console.log('Hover: All artboard images:', artboardImages.map(img => ({ id: img.id, src: img.src })));
         updateToolbarColorPreview('#000000', 0, 0, 0);
         return;
       }
@@ -1058,17 +1131,24 @@
       const canvasX = x * scaleX;
       const canvasY = y * scaleY;
 
-      console.log('Hover: Mouse pos:', x, y, 'Scale:', scaleX, scaleY, 'Canvas pos:', canvasX, canvasY);
+      console.log('Hover Debug:', {
+        mousePos: { x, y },
+        displaySize: { w: displayedCanvasWidth, h: displayedCanvasHeight },
+        canvasSize: { w: hoveredCanvas.width, h: hoveredCanvas.height },
+        scale: { x: scaleX, y: scaleY },
+        canvasPos: { x: canvasX, y: canvasY }
+      });
 
       // Make sure we're within canvas bounds
       if (canvasX >= 0 && canvasX < hoveredCanvas.width && canvasY >= 0 && canvasY < hoveredCanvas.height) {
         // Test if canvas has image data by sampling a pixel
         const testPixel = hoveredCtx.getImageData(Math.floor(canvasX), Math.floor(canvasY), 1, 1);
+        console.log('Raw pixel data at', Math.floor(canvasX), Math.floor(canvasY), ':', testPixel.data);
 
         const { red, green, blue } = getAverageColor(hoveredCtx, canvasX, canvasY, samplingSize);
         const hexColor = rgbToHex(red, green, blue);
 
-        console.log('Hover sampling - Canvas coords:', canvasX, canvasY, 'RGB:', red, green, blue, 'Hex:', hexColor);
+        console.log('Hover sampling result:', { canvasX, canvasY, red, green, blue, hexColor });
 
         // Show preview window but no floating icon - use crosshair cursor
         eyedropperX = event.clientX;
