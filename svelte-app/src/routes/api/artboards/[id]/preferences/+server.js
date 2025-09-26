@@ -1,16 +1,8 @@
-import mysql from 'mysql2/promise';
 import { json } from '@sveltejs/kit';
-
-// Database configuration
-const dbConfig = {
-    host: process.env.DB_HOST || 'localhost',
-    user: process.env.DB_USER || 'root',
-    password: process.env.DB_PASSWORD || '',
-    database: process.env.DB_NAME || 'colorstudy'
-};
+import { getConnection } from '$lib/server/db.js';
 
 export async function GET({ params }) {
-    const connection = await mysql.createConnection(dbConfig);
+    const connection = await getConnection();
 
     try {
         const artboardId = params.id;
@@ -53,7 +45,7 @@ export async function GET({ params }) {
 }
 
 export async function PUT({ params, request }) {
-    const connection = await mysql.createConnection(dbConfig);
+    const connection = await getConnection();
 
     try {
         const artboardId = params.id;

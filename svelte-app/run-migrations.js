@@ -7,16 +7,13 @@ import { fileURLToPath } from 'url';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
-// Check if we're in development mode (simplified check for migration script)
-const isDev = process.env.NODE_ENV !== 'production';
-
-// Database configuration - matches the main app's config
+// Database configuration - uses only environment variables
 const dbConfig = {
-    host: isDev ? 'localhost' : process.env.MYSQL_HOST || 'localhost',
+    host: process.env.MYSQL_HOST || 'localhost',
     ...(process.env.MYSQL_PORT && { port: parseInt(process.env.MYSQL_PORT) }),
-    user: process.env.MYSQL_USER || (isDev ? 'm29user' : 'story_user'),
-    password: process.env.MYSQL_PASSWORD || (isDev ? 'm29Pa55word' : 'story_password'),
-    database: process.env.MYSQL_DATABASE || (isDev ? 'colorstudy' : 'huemixy'),
+    user: process.env.MYSQL_USER,
+    password: process.env.MYSQL_PASSWORD,
+    database: process.env.MYSQL_DATABASE,
     multipleStatements: true
 };
 
