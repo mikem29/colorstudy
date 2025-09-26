@@ -23,7 +23,10 @@
       "Bash(ssh:*)",
       "Bash(cat:*)",
       "Read(//Volumes/X9 Pro/Projects/MicroSass/Story/**)",
-      "Read(//Volumes/**)"
+      "Read(//Volumes/**)",
+      "Bash(git rm:*)",
+      "Bash(git add:*)",
+      "Bash(git commit:*)"
     ],
     "deny": [],
     "ask": []
