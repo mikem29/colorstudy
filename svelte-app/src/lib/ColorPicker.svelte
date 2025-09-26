@@ -1292,8 +1292,8 @@
           description: swatch.description,
           posX: parseFloat(swatch.pos_x) || 0,
           posY: parseFloat(swatch.pos_y) || 0,
-          sampleX: swatch.sample_x,
-          sampleY: swatch.sample_y,
+          sampleX: parseFloat(swatch.sample_x) || 0,
+          sampleY: parseFloat(swatch.sample_y) || 0,
           sampleSize: swatch.sample_size || 1,
           imageId: swatch.image_id
         }
@@ -2354,10 +2354,12 @@
           {@const _ = canvasLoadState} <!-- Force reactivity when canvases load -->
 
           {#if imgCanvas && sourceImage.width > 0 && sourceImage.height > 0 && imgCanvas.width > 0 && imgCanvas.height > 0 && typeof swatch.data.sampleX === 'number' && typeof swatch.data.sampleY === 'number' && !isNaN(swatch.data.sampleX) && !isNaN(swatch.data.sampleY) && sourceImage.originalWidth && sourceImage.originalHeight}
-            {@const scaleX = sourceImage.width / imgCanvas.width}
-            {@const scaleY = sourceImage.height / imgCanvas.height}
-            {@const sampleX = Math.round(sourceImage.x + (swatch.data.sampleX * scaleX))}
-            {@const sampleY = Math.round(sourceImage.y + (swatch.data.sampleY * scaleY))}
+            {@const scaleX = (imgCanvas.width > 0) ? sourceImage.width / imgCanvas.width : 1}
+            {@const scaleY = (imgCanvas.height > 0) ? sourceImage.height / imgCanvas.height : 1}
+            {@const calculatedX = sourceImage.x + (swatch.data.sampleX * scaleX)}
+            {@const calculatedY = sourceImage.y + (swatch.data.sampleY * scaleY)}
+            {@const sampleX = (!isNaN(calculatedX) && isFinite(calculatedX)) ? Math.round(calculatedX) : sourceImage.x}
+            {@const sampleY = (!isNaN(calculatedY) && isFinite(calculatedY)) ? Math.round(calculatedY) : sourceImage.y}
             {@const sampleRadius = Math.max(4, Math.round((sampleSize * scaleX) / 2))}
 
             <!-- Connection Line -->
