@@ -76,39 +76,28 @@ export async function POST({ params, request }) {
 export async function DELETE({ params }) {
   try {
     const { id } = params;
-    console.log('DELETE API - Deleting artboard ID:', id);
 
     const connection = await getConnection();
 
     // Delete related data first - order matters due to foreign key constraints
     // First delete swatches that might reference images
-    console.log('DELETE API - Deleting swatches by artboard_id...');
     const [swatchResult1] = await connection.execute('DELETE FROM swatches WHERE artboard_id = ?', [id]);
-    console.log('DELETE API - Deleted', swatchResult1.affectedRows, 'swatches by artboard_id');
 
     // Also delete swatches that reference images in this artboard
-    console.log('DELETE API - Deleting swatches by image_id...');
     const [swatchResult2] = await connection.execute('DELETE swatches FROM swatches INNER JOIN images ON swatches.image_id = images.id WHERE images.artboard_id = ?', [id]);
-    console.log('DELETE API - Deleted', swatchResult2.affectedRows, 'swatches by image_id');
 
     // Now we can safely delete images
-    console.log('DELETE API - Deleting images...');
     const [imageResult] = await connection.execute('DELETE FROM images WHERE artboard_id = ?', [id]);
-    console.log('DELETE API - Deleted', imageResult.affectedRows, 'images');
 
     // Delete artboard
-    console.log('DELETE API - Deleting artboard...');
     const [result] = await connection.execute('DELETE FROM artboards WHERE id = ?', [id]);
-    console.log('DELETE API - Artboard delete result:', result);
 
     await connection.end();
 
     if (result.affectedRows === 0) {
-      console.log('DELETE API - No artboard found with ID:', id);
       return json({ status: 'error', message: 'Artboard not found.' }, { status: 404 });
     }
 
-    console.log('DELETE API - Successfully deleted artboard');
     return json({
       status: 'success',
       message: 'Artboard deleted successfully.'

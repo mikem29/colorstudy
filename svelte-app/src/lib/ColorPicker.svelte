@@ -1,5 +1,5 @@
 <script>
-  import { onMount } from 'svelte';
+  import { onMount, onDestroy } from 'svelte';
 
   let {
     loadSavedSwatches,
@@ -304,7 +304,6 @@
       };
 
       img.onload = function() {
-        console.log('Image loaded successfully');
         loadImageToCanvas(img);
       };
 
@@ -320,6 +319,17 @@
     };
   });
 
+  onDestroy(() => {
+    // Clean up any remaining event listeners
+    document.removeEventListener('mouseup', handleGlobalMouseUp);
+    document.removeEventListener('mouseleave', handleGlobalMouseUp);
+    document.removeEventListener('mouseout', handleGlobalMouseUp);
+
+    // Reset drag state
+    isDragging = false;
+    draggedSwatchIndex = -1;
+  });
+
   function loadImageToCanvas(img) {
     // Skip this function entirely if using multiple images
     if (enableMultipleImages) {
@@ -329,7 +339,6 @@
     // For the new multiple image system, we mainly need to set up the primary canvas
     // if it exists (for the first image) to support eyedropper functionality
     if (!canvas) {
-      console.log('No canvas available, skipping canvas setup');
       return;
     }
 
@@ -368,7 +377,6 @@
 
       createPlaceholders();
 
-      console.log('Canvas updated:', scaledWidth, 'x', scaledHeight);
     } catch (error) {
       console.error('Error loading image to canvas:', error);
     }
@@ -381,7 +389,6 @@
     }
 
     if (!canvas) {
-      console.log('No canvas available for initialization');
       return;
     }
     const containerWidth = canvas.parentElement?.offsetWidth || 800;
@@ -532,27 +539,23 @@
     }
 
     if (!clickedImageId || !clickedImage) {
-      console.log('No image found for eyedropper click');
       return;
     }
 
     // Get the canvas element for the clicked image
     const clickedCanvas = imageCanvases.get(clickedImageId);
     if (!clickedCanvas) {
-      console.log('Canvas not found for clicked image');
       return;
     }
 
     const clickedCtx = clickedCanvas.getContext('2d');
     if (!clickedCtx) {
-      console.log('Cannot get canvas context for clicked image');
       return;
     }
 
     // Get the img element's displayed size for consistent coordinate calculation
     const imgElement = document.querySelector(`img[data-image-id="${clickedImageId}"]`);
     if (!imgElement) {
-      console.log('Image element not found for coordinate calculation');
       return;
     }
 
@@ -566,14 +569,12 @@
 
     // Make sure coordinates are within canvas bounds
     if (canvasX < 0 || canvasX >= clickedCanvas.width || canvasY < 0 || canvasY >= clickedCanvas.height) {
-      console.log('Click coordinates outside canvas bounds');
       return;
     }
 
     const { red, green, blue } = getAverageColor(clickedCtx, canvasX, canvasY, samplingSize);
     const hexColor = rgbToHex(red, green, blue);
 
-    console.log('Click sampling - Canvas coords:', canvasX, canvasY, 'RGB:', red, green, blue, 'Hex:', hexColor);
 
     // Calculate default position for new swatch (artboard-relative)
     const swatchPos = getSwatchPosition(swatchIndex);
@@ -608,7 +609,6 @@
     selectedImageIndex = index;
     // Deselect any selected swatch when selecting image
     selectedSwatchIndex = -1;
-    console.log('Selected image:', imageId, 'at index:', index);
   }
 
   function getSelectedImage() {
@@ -617,11 +617,6 @@
 
   async function createCanvasForImage(image) {
     return new Promise((resolve, reject) => {
-      console.log('Creating manual canvas for image:', {
-        id: image.id,
-        src: image.src,
-        dimensions: { w: image.width, h: image.height, origW: image.originalWidth, origH: image.originalHeight }
-      });
 
       // Create a hidden canvas element
       const canvas = document.createElement('canvas');
@@ -636,10 +631,6 @@
 
       img.onload = function() {
         try {
-          console.log('Image loaded for manual canvas:', {
-            naturalSize: { w: img.naturalWidth, h: img.naturalHeight },
-            complete: img.complete
-          });
 
           // Set canvas dimensions to original image size
           canvas.width = img.naturalWidth;
@@ -653,11 +644,6 @@
 
           // Test that canvas has actual image data
           const testPixel = ctx.getImageData(Math.floor(canvas.width/2), Math.floor(canvas.height/2), 1, 1);
-          console.log('Manual canvas draw complete:', {
-            canvasSize: { w: canvas.width, h: canvas.height },
-            testPixelAtCenter: Array.from(testPixel.data),
-            imageComplete: img.complete
-          });
 
           // Trigger canvas load state update
           canvasLoadState++;
@@ -678,7 +664,6 @@
       };
 
       // Set the source - this should trigger loading
-      console.log('Setting image src:', image.src);
       img.src = image.src;
     });
   }
@@ -712,7 +697,6 @@
         const swatchX = swatch.data.posX !== undefined ? swatch.data.posX : 0;
         const swatchY = swatch.data.posY !== undefined ? swatch.data.posY : 0;
 
-        console.log(`Existing swatch ${index} at position:`, { x: swatchX, y: swatchY });
 
         // Convert swatch position to grid coordinates
         const gridCol = Math.floor((swatchX - MARGIN) / gridCellWidth);
@@ -720,20 +704,14 @@
 
         // Mark as occupied if within grid bounds
         if (gridRow >= 0 && gridRow < rows && gridCol >= 0 && gridCol < cols) {
-          console.log(`Marking grid cell [${gridRow}, ${gridCol}] as occupied`);
           occupancyGrid[gridRow][gridCol] = true;
         }
       }
     });
 
-    console.log(`Found ${existingSwatchCount} existing swatches to avoid`);
 
     // Mark occupied positions by images
     artboardImages.forEach(image => {
-      console.log('Checking image collision:', {
-        imagePos: { x: image.x, y: image.y, w: image.width, h: image.height },
-        artboardSize: { w: artboardWidth, h: artboardHeight }
-      });
 
       const imgLeft = image.x;
       const imgRight = image.x + image.width;
@@ -754,10 +732,6 @@
           const overlaps = horizontalOverlap && verticalOverlap;
 
           if (overlaps) {
-            console.log('Grid cell blocked by image:', {
-              gridCell: { row, col, left: gridLeft, top: gridTop, right: gridRight, bottom: gridBottom },
-              image: { left: imgLeft, top: imgTop, right: imgRight, bottom: imgBottom }
-            });
             occupancyGrid[row][col] = true;
           }
         }
@@ -765,7 +739,6 @@
     });
 
     // Find the first available position (left to right, top to bottom)
-    console.log('Searching for available grid position in', rows, 'x', cols, 'grid');
     for (let row = 0; row < rows; row++) {
       for (let col = 0; col < cols; col++) {
         if (!occupancyGrid[row][col]) {
@@ -773,14 +746,12 @@
             x: MARGIN + col * gridCellWidth,
             y: MARGIN + row * gridCellHeight
           };
-          console.log('Found available position:', { row, col, position });
           return position;
         }
       }
     }
 
     // If no space available, place at origin (fallback - overlapping will be handled later)
-    console.log('No available grid position found, using fallback');
     return {
       x: MARGIN,
       y: MARGIN
@@ -829,7 +800,6 @@
           imageCanvases.set(image.id, canvas);
           currentImage = { src: image.src, width: image.width, height: image.height };
           isLoaded = true;
-          console.log('Canvas loaded and stored for image ID:', image.id);
 
           // Trigger connection line re-render by updating state
           canvasLoadState++;
@@ -903,7 +873,6 @@
         if (result.status === 'success') {
           // Update the image with the real database ID
           newImage.id = result.image_id;
-          console.log('Image saved to database with ID:', result.image_id);
         } else {
           console.error('Failed to save image to database:', result.message);
         }
@@ -913,7 +882,6 @@
       artboardImages = [...artboardImages, newImage];
 
       // Manually create canvas for immediate color picking availability
-      console.log('Creating canvas manually for new image:', newImage.id);
       await createCanvasForImage(newImage);
 
       // Auto-select the newly placed image
@@ -925,8 +893,6 @@
       pendingImageData = null;
       currentTool = 'select';
 
-      console.log('Added new image to artboard:', newImage);
-      console.log('Total images on artboard:', artboardImages.length);
 
     } catch (error) {
       console.error('Error placing image:', error);
@@ -1008,13 +974,11 @@
 
   async function saveImagePosition() {
     if (!selectedImageId) {
-      console.log('No selected image to save position for');
       return;
     }
 
     const selectedImage = getSelectedImage();
     if (!selectedImage) {
-      console.log('Selected image not found');
       return;
     }
 
@@ -1030,10 +994,8 @@
 
       const result = await response.json();
       if (result.status === 'success') {
-        console.log('Image position saved successfully');
 
         // Recreate canvas for color picker after position change
-        console.log('Recreating canvas after position change for image:', selectedImageId);
         await createCanvasForImage(selectedImage);
       } else {
         console.error('Failed to save image position:', result.message);
@@ -1045,13 +1007,11 @@
 
   async function saveImageSize() {
     if (!selectedImageId) {
-      console.log('No selected image to save size for');
       return;
     }
 
     const selectedImage = getSelectedImage();
     if (!selectedImage) {
-      console.log('Selected image not found');
       return;
     }
 
@@ -1067,9 +1027,7 @@
 
       const result = await response.json();
       if (result.status === 'success') {
-        console.log('Image size saved successfully');
         // Recreate canvas for color picker after size change
-        console.log('Recreating canvas after size change for image:', selectedImageId);
         await createCanvasForImage(selectedImage);
       } else {
         console.error('Failed to save image size:', result.message);
@@ -1115,9 +1073,7 @@
       // Get the canvas for the hovered image
       const hoveredCanvas = imageCanvases.get(hoveredImageId);
       if (!hoveredCanvas) {
-        console.log('Hover: Canvas not found for image ID:', hoveredImageId, 'Available canvases:', Array.from(imageCanvases.keys()));
-        console.log('Hover: All artboard images:', artboardImages.map(img => ({ id: img.id, src: img.src })));
-        updateToolbarColorPreview('#000000', 0, 0, 0);
+          updateToolbarColorPreview('#000000', 0, 0, 0);
         return;
       }
 
@@ -1138,24 +1094,15 @@
       const canvasX = x * scaleX;
       const canvasY = y * scaleY;
 
-      console.log('Hover Debug:', {
-        mousePos: { x, y },
-        displaySize: { w: displayedCanvasWidth, h: displayedCanvasHeight },
-        canvasSize: { w: hoveredCanvas.width, h: hoveredCanvas.height },
-        scale: { x: scaleX, y: scaleY },
-        canvasPos: { x: canvasX, y: canvasY }
-      });
 
       // Make sure we're within canvas bounds
       if (canvasX >= 0 && canvasX < hoveredCanvas.width && canvasY >= 0 && canvasY < hoveredCanvas.height) {
         // Test if canvas has image data by sampling a pixel
         const testPixel = hoveredCtx.getImageData(Math.floor(canvasX), Math.floor(canvasY), 1, 1);
-        console.log('Raw pixel data at', Math.floor(canvasX), Math.floor(canvasY), ':', testPixel.data);
 
         const { red, green, blue } = getAverageColor(hoveredCtx, canvasX, canvasY, samplingSize);
         const hexColor = rgbToHex(red, green, blue);
 
-        console.log('Hover sampling result:', { canvasX, canvasY, red, green, blue, hexColor });
 
         // Show preview window but no floating icon - use crosshair cursor
         eyedropperX = event.clientX;
@@ -1388,9 +1335,6 @@
     posX = (posX - panX) / zoomLevel;
     posY = (posY - panY) / zoomLevel;
 
-    console.log('Swatch placement - Raw coords:', event.clientX - rect.left, event.clientY - rect.top);
-    console.log('Swatch placement - Transformed coords:', posX, posY);
-    console.log('Zoom level:', zoomLevel, 'Pan:', panX, panY);
 
     // Place the swatch at the clicked position
     updateSwatch(
@@ -1415,7 +1359,6 @@
     if (pendingClickData) {
       // Find next available grid position
       const nextPosition = findNextAvailableGridPosition();
-      console.log('handleSubmit: Grid position calculated:', nextPosition);
 
       // Create swatch immediately at the grid position
       await updateSwatch(
@@ -1431,7 +1374,6 @@
         pendingClickData.imageId
       );
 
-      console.log('handleSubmit: Swatch created at position:', nextPosition.x, nextPosition.y);
 
       // Clean up
       showModal = false;
@@ -1469,7 +1411,6 @@
       imageId: imageId // Use the imageId passed as parameter
     };
 
-    console.log('updateSwatch: Creating swatch with posX:', posX, 'posY:', posY);
 
     // Add to local array first
     swatchPlaceholders[swatchIndex] = {
@@ -1503,7 +1444,6 @@
         }])
       });
 
-      console.log('updateSwatch: Saving to database - pos_x:', posX, 'pos_y:', posY);
 
       const result = await response.json();
 
@@ -1659,16 +1599,13 @@
   async function loadSavedSwatchesFromDB() {
     if (!artboardId) return;
 
-    console.log('loadSavedSwatchesFromDB: Loading swatches for artboard', artboardId);
 
     try {
       const response = await fetch(`/api/swatches/artboard/${artboardId}`);
       const result = await response.json();
 
-      console.log('loadSavedSwatchesFromDB: API response:', result);
 
       if (result.status === 'success' && result.data.length > 0) {
-        console.log('loadSavedSwatchesFromDB: Found', result.data.length, 'saved swatches');
         // Create array sized to fit all saved swatches (minimum 8)
         const arraySize = Math.max(8, result.data.length + 8);
         swatchPlaceholders = Array(arraySize).fill().map(() => ({ filled: false, data: null }));
@@ -1740,6 +1677,12 @@
 
     isDragging = true;
     draggedSwatchIndex = index;
+
+    // Add document-level event listeners to handle mouse release outside the artboard
+    document.addEventListener('mouseup', handleGlobalMouseUp);
+    document.addEventListener('mouseleave', handleGlobalMouseUp);
+    // Also handle when mouse leaves the entire window/document
+    document.addEventListener('mouseout', handleGlobalMouseUp);
 
     const swatch = swatchPlaceholders[index];
 
@@ -1848,7 +1791,6 @@
 
       // Don't resize if original dimensions aren't loaded yet (race condition prevention)
       if (selectedImage.needsOriginalDimensions) {
-        console.log('Resize blocked - waiting for original dimensions to load');
         return;
       }
 
@@ -1948,6 +1890,16 @@
     }
   }
 
+  function handleGlobalMouseUp() {
+    // Remove document-level event listeners
+    document.removeEventListener('mouseup', handleGlobalMouseUp);
+    document.removeEventListener('mouseleave', handleGlobalMouseUp);
+    document.removeEventListener('mouseout', handleGlobalMouseUp);
+
+    // Call the regular mouse up handler
+    handleMouseUp();
+  }
+
   async function handleMouseUp() {
     // Handle swatch dragging
     if (isDragging && draggedSwatchIndex !== -1) {
@@ -1977,7 +1929,6 @@
 
           const result = await response.json();
           if (result.status === 'success') {
-            console.log('Position saved successfully');
           } else {
             console.error('Failed to save position:', result.message);
           }
@@ -1988,6 +1939,12 @@
 
       isDragging = false;
       draggedSwatchIndex = -1;
+
+      // Clean up document-level event listeners
+      document.removeEventListener('mouseup', handleGlobalMouseUp);
+      document.removeEventListener('mouseleave', handleGlobalMouseUp);
+      document.removeEventListener('mouseout', handleGlobalMouseUp);
+
       // Don't deselect swatch here - keep it selected after drag
     }
 
@@ -2041,7 +1998,6 @@
         // Remove all swatches associated with the deleted image
         swatchPlaceholders = swatchPlaceholders.map(swatch => {
           if (swatch.filled && swatch.data.imageId === deletedImageId) {
-            console.log('Removing swatch associated with deleted image:', deletedImageId);
             return { filled: false, data: null };
           }
           return swatch;
@@ -2055,7 +2011,6 @@
         // Clean up canvas reference
         imageCanvases.delete(deletedImageId);
 
-        console.log('Image and associated swatches deleted successfully');
 
         // Trigger callback to parent if provided
         if (onSwatchCreated) {
@@ -2098,7 +2053,6 @@
         // Clear selection
         selectedSwatchIndex = -1;
 
-        console.log('Swatch deleted successfully');
       } else {
         console.error('Failed to delete swatch:', result.message);
       }
@@ -2404,14 +2358,6 @@
             {@const scaleY = sourceImage.height / imgCanvas.height}
             {@const sampleX = Math.round(sourceImage.x + (swatch.data.sampleX * scaleX))}
             {@const sampleY = Math.round(sourceImage.y + (swatch.data.sampleY * scaleY))}
-            {@const debugInfo = console.log('Connection line calc:', {
-              imageId: swatch.data.imageId,
-              sourceImage: { x: sourceImage.x, y: sourceImage.y, w: sourceImage.width, h: sourceImage.height },
-              canvas: { w: imgCanvas.width, h: imgCanvas.height },
-              sampleData: { x: swatch.data.sampleX, y: swatch.data.sampleY },
-              scales: { x: scaleX, y: scaleY },
-              finalSample: { x: sampleX, y: sampleY }
-            })}
             {@const sampleRadius = Math.max(4, Math.round((sampleSize * scaleX) / 2))}
 
             <!-- Connection Line -->
