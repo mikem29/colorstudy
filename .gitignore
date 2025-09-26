@@ -46,3 +46,7 @@ coverage/
 
 # Uploads directory
 uploads/
+
+# Deployment archives
+*.tar.gz
+build.tar.gz
