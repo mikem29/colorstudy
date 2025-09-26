@@ -25,15 +25,17 @@ export async function GET({ params }) {
         if (prefRows.length === 0) {
             // Create default preferences
             await connection.execute(
-                'INSERT INTO artboard_preferences (artboard_id, show_connection_lines) VALUES (?, ?)',
-                [artboardId, true]
+                'INSERT INTO artboard_preferences (artboard_id, show_connection_lines, show_color_format_on_swatch) VALUES (?, ?, ?)',
+                [artboardId, true, true]
             );
             preferences = {
-                show_connection_lines: true
+                show_connection_lines: true,
+                show_color_format_on_swatch: true
             };
         } else {
             preferences = {
-                show_connection_lines: Boolean(prefRows[0].show_connection_lines)
+                show_connection_lines: Boolean(prefRows[0].show_connection_lines),
+                show_color_format_on_swatch: Boolean(prefRows[0].show_color_format_on_swatch)
             };
         }
 
@@ -55,12 +57,12 @@ export async function PUT({ params, request }) {
 
     try {
         const artboardId = params.id;
-        const { show_connection_lines } = await request.json();
+        const { show_connection_lines, show_color_format_on_swatch } = await request.json();
 
         // Update preferences
         await connection.execute(
-            'INSERT INTO artboard_preferences (artboard_id, show_connection_lines) VALUES (?, ?) ON DUPLICATE KEY UPDATE show_connection_lines = ?, updated_at = NOW()',
-            [artboardId, show_connection_lines, show_connection_lines]
+            'INSERT INTO artboard_preferences (artboard_id, show_connection_lines, show_color_format_on_swatch) VALUES (?, ?, ?) ON DUPLICATE KEY UPDATE show_connection_lines = COALESCE(VALUES(show_connection_lines), show_connection_lines), show_color_format_on_swatch = COALESCE(VALUES(show_color_format_on_swatch), show_color_format_on_swatch), updated_at = NOW()',
+            [artboardId, show_connection_lines || false, show_color_format_on_swatch || false]
         );
 
         return json({

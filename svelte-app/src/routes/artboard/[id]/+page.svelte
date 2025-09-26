@@ -11,6 +11,7 @@
   let loading = true;
   let uploadingImage = false;
   let showConnectionLines = true;
+  let showColorFormatOnSwatch = true;
 
   $: artboardId = $page.params.id;
 
@@ -25,6 +26,7 @@
       const result = await response.json();
       if (result.status === 'success') {
         showConnectionLines = result.data.show_connection_lines;
+        showColorFormatOnSwatch = result.data.show_color_format_on_swatch;
       }
     } catch (error) {
       console.error('Error loading preferences:', error);
@@ -37,7 +39,8 @@
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          show_connection_lines: showConnectionLines
+          show_connection_lines: showConnectionLines,
+          show_color_format_on_swatch: showColorFormatOnSwatch
         })
       });
     } catch (error) {
@@ -129,6 +132,7 @@
         existingSwatches={swatches}
         enableMultipleImages={true}
         {showConnectionLines}
+        {showColorFormatOnSwatch}
         onSwatchCreated={handleSwatchCreated}
         onImageUpload={handleFileUpload}
       />
@@ -182,7 +186,16 @@
             />
             <span class="text-sm text-gray-700">Show connection lines</span>
           </label>
-          <p class="text-xs text-gray-500">Show lines connecting swatches to their sample locations</p>
+          <label class="flex items-center space-x-3 cursor-pointer">
+            <input
+              type="checkbox"
+              bind:checked={showColorFormatOnSwatch}
+              on:change={updatePreferences}
+              class="w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 rounded focus:ring-blue-500 focus:ring-2"
+            />
+            <span class="text-sm text-gray-700">Show color values on swatches</span>
+          </label>
+          <p class="text-xs text-gray-500">Display color format values directly on the swatches</p>
         </div>
       </div>
     </div>

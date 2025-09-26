@@ -12,6 +12,7 @@
     existingSwatches = [],
     enableMultipleImages = false,
     showConnectionLines = true,
+    showColorFormatOnSwatch = true,
     onSwatchCreated,
     onImageUpload
   } = $props();
@@ -2485,12 +2486,14 @@
               {#if swatch.data.description && swatch.data.description.trim()}
                 <p class="font-medium truncate" style="font-size: 10pt; color: #111; line-height: 1.2;">{swatch.data.description}</p>
               {/if}
-              <p class="font-mono" style="font-size: 8pt; color: #666; line-height: 1.1;">
-                {colorFormat === 'RGB'
-                  ? `RGB(${swatch.data.red}, ${swatch.data.green}, ${swatch.data.blue})`
-                  : swatch.data.cmyk
-                }
-              </p>
+              {#if showColorFormatOnSwatch}
+                <p class="font-mono" style="font-size: 8pt; color: #666; line-height: 1.1;">
+                  {colorFormat === 'RGB'
+                    ? `RGB(${swatch.data.red}, ${swatch.data.green}, ${swatch.data.blue})`
+                    : swatch.data.cmyk
+                  }
+                </p>
+              {/if}
             </div>
           </div>
         </div>
