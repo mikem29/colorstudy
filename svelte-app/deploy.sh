@@ -44,12 +44,6 @@ echo "━━━━━━━━━━━━━━━━━━━━━━━━�
 # Extract and cleanup on server
 ssh $SERVER "cd $REMOTE_PATH && echo 'Extracting build.tar.gz...' && tar xzf build.tar.gz && rm build.tar.gz && echo '✅ Extraction completed'"
 
-echo
-echo "📦 Installing dependencies..."
-echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-
-# Install production dependencies on server
-ssh $SERVER "cd $REMOTE_PATH && npm install --production && echo '✅ Dependencies installed'"
 
 echo
 echo "🔄 Restarting application..."
