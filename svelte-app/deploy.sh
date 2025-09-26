@@ -23,7 +23,7 @@ echo "📦 Creating deployment archive..."
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 
 # Create compressed archive including production config
-tar czf build.tar.gz build/ package.json package-lock.json ecosystem.config.cjs nginx-huemixy.conf mysql/ 2>/dev/null || tar czf build.tar.gz build/ package.json package-lock.json ecosystem.config.cjs nginx-huemixy.conf mysql/
+tar czf build.tar.gz build/ package.json package-lock.json ecosystem.config.cjs nginx-huemixy.conf mysql/ migrations/ run-migrations.js 2>/dev/null || tar czf build.tar.gz build/ package.json package-lock.json ecosystem.config.cjs nginx-huemixy.conf mysql/ migrations/ run-migrations.js
 echo "✅ Archive created: build.tar.gz"
 
 # Get file size for progress indication
@@ -44,6 +44,12 @@ echo "━━━━━━━━━━━━━━━━━━━━━━━━�
 # Extract and cleanup on server
 ssh $SERVER "cd $REMOTE_PATH && echo 'Extracting build.tar.gz...' && tar xzf build.tar.gz && rm build.tar.gz && echo '✅ Extraction completed'"
 
+echo
+echo "🗃️  Running database migrations..."
+echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+
+# Run database migrations on server
+ssh $SERVER "cd $REMOTE_PATH && node run-migrations.js && echo '✅ Migrations completed'"
 
 echo
 echo "🔄 Restarting application..."

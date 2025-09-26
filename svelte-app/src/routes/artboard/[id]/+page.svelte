@@ -10,12 +10,40 @@
   let swatches = [];
   let loading = true;
   let uploadingImage = false;
+  let showConnectionLines = true;
 
   $: artboardId = $page.params.id;
 
   onMount(() => {
     loadArtboard();
+    loadPreferences();
   });
+
+  async function loadPreferences() {
+    try {
+      const response = await fetch(`/api/artboards/${artboardId}/preferences`);
+      const result = await response.json();
+      if (result.status === 'success') {
+        showConnectionLines = result.data.show_connection_lines;
+      }
+    } catch (error) {
+      console.error('Error loading preferences:', error);
+    }
+  }
+
+  async function updatePreferences() {
+    try {
+      await fetch(`/api/artboards/${artboardId}/preferences`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          show_connection_lines: showConnectionLines
+        })
+      });
+    } catch (error) {
+      console.error('Error updating preferences:', error);
+    }
+  }
 
   async function loadArtboard() {
     try {
@@ -100,6 +128,7 @@
         existingImages={images}
         existingSwatches={swatches}
         enableMultipleImages={true}
+        {showConnectionLines}
         onSwatchCreated={handleSwatchCreated}
         onImageUpload={handleFileUpload}
       />
@@ -136,6 +165,24 @@
             <option value="CMYK">CMYK</option>
           </select>
           <p class="text-xs text-gray-500">Choose between RGB and CMYK color formats</p>
+        </div>
+
+        <!-- Show Connection Lines -->
+        <div class="space-y-3">
+          <label class="block text-xs font-medium text-gray-700 uppercase tracking-wide">
+            <i class="fas fa-link mr-2"></i>
+            Display Options
+          </label>
+          <label class="flex items-center space-x-3 cursor-pointer">
+            <input
+              type="checkbox"
+              bind:checked={showConnectionLines}
+              on:change={updatePreferences}
+              class="w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 rounded focus:ring-blue-500 focus:ring-2"
+            />
+            <span class="text-sm text-gray-700">Show connection lines</span>
+          </label>
+          <p class="text-xs text-gray-500">Show lines connecting swatches to their sample locations</p>
         </div>
       </div>
     </div>

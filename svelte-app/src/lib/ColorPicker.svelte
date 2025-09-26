@@ -11,6 +11,7 @@
     existingImages = [],
     existingSwatches = [],
     enableMultipleImages = false,
+    showConnectionLines = true,
     onSwatchCreated,
     onImageUpload
   } = $props();
@@ -2362,8 +2363,9 @@
     {/each}
 
     <!-- Visual Connectors from Swatches to Sample Locations -->
-    {#each swatchPlaceholders as swatch, i}
-      {#if swatch.filled && swatch.data.sampleX != null && swatch.data.sampleY != null && swatch.data.imageId}
+    {#if showConnectionLines}
+      {#each swatchPlaceholders as swatch, i}
+        {#if swatch.filled && swatch.data.sampleX != null && swatch.data.sampleY != null && swatch.data.imageId}
         {@const sourceImage = artboardImages.find(img => img.id === swatch.data.imageId)}
         {#if sourceImage && !sourceImage.needsOriginalDimensions}
           {@const swatchPos = {
@@ -2445,6 +2447,7 @@
         {/if}
       {/if}
     {/each}
+    {/if}
 
     <!-- Color Swatches (positioned within artboard) -->
     {#each swatchPlaceholders as swatch, i}
