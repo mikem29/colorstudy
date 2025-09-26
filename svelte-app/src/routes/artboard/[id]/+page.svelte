@@ -85,68 +85,60 @@
     <i class="fas fa-spinner fa-spin text-4xl text-blue-600"></i>
   </div>
 {:else if artboard}
-  <div class="h-screen overflow-hidden">
-    <!-- Header -->
-    <div class="bg-white border-b border-gray-200 px-4 py-3 flex items-center justify-between">
-      <div class="flex items-center space-x-4">
-        <a href="/dashboard" class="text-gray-600 hover:text-gray-900">
-          <i class="fas fa-arrow-left"></i>
-        </a>
-        <h1 class="text-xl font-bold">{artboard.name}</h1>
-        <span class="text-sm text-gray-500">
-          {artboard.width_inches}" × {artboard.height_inches}"
-        </span>
-      </div>
+  <div class="h-screen overflow-hidden flex relative">
+    <!-- Floating Back Arrow -->
+    <a href="/dashboard" class="absolute top-4 left-4 z-50 bg-white rounded-full p-3 shadow-lg border border-gray-200 text-gray-600 hover:text-gray-900 hover:shadow-xl transition-all">
+      <i class="fas fa-arrow-left"></i>
+    </a>
 
-      <!-- Controls -->
-      <div class="flex items-center space-x-4">
+    <!-- Main Content Area -->
+    <div class="flex-1">
+      <ColorPicker
+        {artboardId}
+        artboardWidth={artboard.width_inches}
+        artboardHeight={artboard.height_inches}
+        existingImages={images}
+        existingSwatches={swatches}
+        enableMultipleImages={true}
+        onSwatchCreated={handleSwatchCreated}
+        onImageUpload={handleFileUpload}
+      />
+    </div>
+
+    <!-- Fixed Right Sidebar -->
+    <div class="w-80 bg-gray-50 border-l border-gray-200 flex flex-col h-screen">
+      <!-- Sidebar Content -->
+      <div class="flex-1 overflow-y-auto p-4 space-y-6">
         <!-- Sample Size Control -->
-        <div class="flex items-center space-x-2">
-          <i class="fas fa-crosshairs text-gray-500 text-sm" title="Sample Size - Controls the area used for color sampling"></i>
-          <select class="px-3 py-1.5 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
-            <option value="1">1x1 (Point)</option>
-            <option value="3">3x3</option>
-            <option value="5">5x5</option>
-            <option value="11">11x11</option>
-            <option value="31">31x31</option>
+        <div class="space-y-3">
+          <label class="block text-xs font-medium text-gray-700 uppercase tracking-wide">
+            <i class="fas fa-crosshairs mr-2"></i>
+            Sample Size
+          </label>
+          <select class="w-full px-3 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
+            <option value="1">1×1 (Point)</option>
+            <option value="3">3×3</option>
+            <option value="5">5×5</option>
+            <option value="11">11×11</option>
+            <option value="31">31×31</option>
           </select>
+          <p class="text-xs text-gray-500">Controls the area used for color sampling</p>
         </div>
 
-        <!-- Color Mode Control -->
-        <div class="flex items-center space-x-2">
-          <i class="fas fa-palette text-gray-500 text-sm" title="Color Mode - Choose between RGB and CMYK color formats"></i>
-          <select class="px-3 py-1.5 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
+        <!-- Color Format Control -->
+        <div class="space-y-3">
+          <label class="block text-xs font-medium text-gray-700 uppercase tracking-wide">
+            <i class="fas fa-palette mr-2"></i>
+            Color Format
+          </label>
+          <select class="w-full px-3 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
             <option value="RGB">RGB</option>
             <option value="CMYK">CMYK</option>
           </select>
+          <p class="text-xs text-gray-500">Choose between RGB and CMYK color formats</p>
         </div>
-
-        <!-- Logout -->
-        {#if data?.user}
-          <form action="/logout" method="POST" class="inline">
-            <button
-              type="submit"
-              class="text-sm text-gray-600 hover:text-gray-800 px-2 py-1 rounded transition-colors"
-              title="Logout"
-            >
-              <i class="fas fa-sign-out-alt"></i>
-            </button>
-          </form>
-        {/if}
       </div>
     </div>
-
-    <!-- Main Content -->
-    <ColorPicker
-      {artboardId}
-      artboardWidth={artboard.width_inches}
-      artboardHeight={artboard.height_inches}
-      existingImages={images}
-      existingSwatches={swatches}
-      enableMultipleImages={true}
-      onSwatchCreated={handleSwatchCreated}
-      onImageUpload={handleFileUpload}
-    />
   </div>
 {:else}
   <div class="flex items-center justify-center h-screen">
