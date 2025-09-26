@@ -177,6 +177,29 @@
       }
     }, 200);
 
+    // Auto-fix arrow positions by programmatically moving images 1 pixel and back
+    setTimeout(() => {
+      if (artboardImages.length > 0) {
+        // Move each image 1 pixel right and down to trigger the reactivity fix
+        const nudgedImages = artboardImages.map(img => ({
+          ...img,
+          x: img.x + 1,
+          y: img.y + 1
+        }));
+        artboardImages = nudgedImages;
+
+        // Move back to original position after a brief moment
+        setTimeout(() => {
+          const revertedImages = artboardImages.map(img => ({
+            ...img,
+            x: img.x - 1,
+            y: img.y - 1
+          }));
+          artboardImages = revertedImages;
+        }, 50);
+      }
+    }, 1000); // Wait longer to ensure everything is loaded
+
     // Initialize swatch placeholders with existing swatches
     createPlaceholders();
 
