@@ -66,14 +66,17 @@
   async function createArtboard() {
     creating = true;
     try {
+      const payload = {
+        name: artboardName || 'Untitled Artboard',
+        width_inches: artboardWidth,
+        height_inches: artboardHeight
+      };
+      console.log('Sending artboard data:', payload);
+
       const response = await fetch('/api/artboards', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          name: artboardName || 'Untitled Artboard',
-          width_inches: artboardWidth,
-          height_inches: artboardHeight
-        })
+        body: JSON.stringify(payload)
       });
 
       const data = await response.json();
@@ -265,11 +268,20 @@
               </button>
               <button
                 type="button"
-                onclick={() => { artboardWidth = 11.0; artboardHeight = 17.0; }}
+                onclick={() => {
+                  artboardWidth = 11.0;
+                  artboardHeight = 17.0;
+                  console.log('Set Tabloid size:', { artboardWidth, artboardHeight });
+                }}
                 class="px-3 py-2 text-sm border border-gray-300 rounded-lg hover:bg-gray-50 {artboardWidth === 11.0 && artboardHeight === 17.0 ? 'bg-blue-50 border-blue-300' : ''}"
               >
                 Tabloid (11" × 17")
               </button>
+            </div>
+
+            <!-- Debug display -->
+            <div class="text-xs text-gray-500 mb-2">
+              Current values: {artboardWidth}" × {artboardHeight}"
             </div>
 
             <!-- Custom size inputs -->

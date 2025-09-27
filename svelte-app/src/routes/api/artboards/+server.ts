@@ -49,6 +49,7 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 
   try {
     const requestData = await request.json();
+
     const name = requestData.name || 'Untitled Artboard';
     // Use nullish coalescing to only use defaults if values are null/undefined, not just falsy
     const width_inches = requestData.width_inches ?? 8.5;
