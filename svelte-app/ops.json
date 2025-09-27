@@ -1,0 +1,28 @@
+{
+  "tracking_entries": [
+    {
+      "id": "drag-refactor-testing-001",
+      "category": "testing_needed",
+      "title": "Dragging Refactor with Performance Optimizations",
+      "description": "Testing revamped dragging functionality to ensure it's safe to commit to main branch and deploy",
+      "priority": "high",
+      "status": "in_progress",
+      "created_date": "2025-09-27T00:00:00Z",
+      "last_updated": "2025-09-27T00:00:00Z",
+      "goal": "Verify stability before committing to main branch and deployment",
+      "key_areas_to_examine": [
+        "Performance with many swatches",
+        "No sticky behavior",
+        "Smooth dragging experience",
+        "Database save functionality"
+      ],
+      "impact": "Core app usability",
+      "notes": "This affects core app usability and needs thorough testing before deployment"
+    }
+  ],
+  "metadata": {
+    "last_updated": "2025-09-27T00:00:00Z",
+    "total_entries": 1,
+    "active_entries": 1
+  }
+}
