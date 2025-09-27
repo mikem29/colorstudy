@@ -50,8 +50,9 @@ export const POST: RequestHandler = async ({ request, locals }) => {
   try {
     const requestData = await request.json();
     const name = requestData.name || 'Untitled Artboard';
-    const width_inches = requestData.width_inches || 8.5;
-    const height_inches = requestData.height_inches || 11.0;
+    // Use nullish coalescing to only use defaults if values are null/undefined, not just falsy
+    const width_inches = requestData.width_inches ?? 8.5;
+    const height_inches = requestData.height_inches ?? 11.0;
 
     const connection = await pool.getConnection();
 
