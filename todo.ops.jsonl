@@ -1,3 +1,4 @@
 {"op": "add", "id": "todo-001", "title": "Fix sticky dragging issue", "priority": 3, "status": "todo", "timestamp": "2025-09-27T00:00:00Z"}
 {"op": "add", "id": "todo-002", "title": "Fix bad canvas artboard size - hardcoded to letter format", "priority": 3, "status": "todo", "timestamp": "2025-09-27T18:31:22Z"}
 {"op": "add", "id": "todo-003", "title": "Fix user-facing website flow - anonymous users only see register/login instead of content", "priority": 4, "status": "todo", "timestamp": "2025-09-27T20:00:00Z"}
+{"op": "patch", "id": "todo-001", "field": "priority", "value": 5, "timestamp": "2025-09-27T21:00:00Z"}
