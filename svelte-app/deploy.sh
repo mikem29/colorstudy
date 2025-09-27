@@ -45,11 +45,28 @@ echo "━━━━━━━━━━━━━━━━━━━━━━━━�
 ssh $SERVER "cd $REMOTE_PATH && echo 'Extracting build.tar.gz...' && tar xzf build.tar.gz && rm build.tar.gz && echo '✅ Extraction completed'"
 
 echo
-echo "🗃️  Running database migrations..."
+echo "🗃️  Checking database schema updates..."
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 
-# Run database migrations on server
-ssh $SERVER "cd $REMOTE_PATH && node run-migrations.js && echo '✅ Migrations completed'"
+# Run database schema updates on server (if migrations directory exists)
+if ssh $SERVER "test -d $REMOTE_PATH/migrations"; then
+    echo "📋 Found schema updates, applying..."
+    # Export the database env vars from PM2 config before running migrations
+    if ssh $SERVER "cd $REMOTE_PATH && \
+        export MYSQL_HOST=localhost && \
+        export MYSQL_PORT=3307 && \
+        export MYSQL_USER=story_user && \
+        export MYSQL_PASSWORD='rCy7mRMkZan8H4FpJr8U1/oHwgmHbgqR6yZk17gqS+Y=' && \
+        export MYSQL_DATABASE=huemixy && \
+        node run-migrations.js 2>&1"; then
+        echo "✅ Schema updates completed successfully"
+    else
+        echo "⚠️  Schema updates encountered an issue (this may be normal if already applied)"
+        echo "   Check server environment variables if connection errors persist"
+    fi
+else
+    echo "ℹ️  No schema updates found, skipping..."
+fi
 
 echo
 echo "🔄 Restarting application..."

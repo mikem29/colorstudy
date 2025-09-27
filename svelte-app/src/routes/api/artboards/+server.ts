@@ -48,7 +48,10 @@ export const POST: RequestHandler = async ({ request, locals }) => {
   }
 
   try {
-    const { name = 'Untitled Artboard', width_inches = 8.5, height_inches = 11.0 } = await request.json();
+    const requestData = await request.json();
+    const name = requestData.name || 'Untitled Artboard';
+    const width_inches = requestData.width_inches || 8.5;
+    const height_inches = requestData.height_inches || 11.0;
 
     const connection = await pool.getConnection();
 
