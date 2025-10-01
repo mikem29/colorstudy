@@ -118,14 +118,14 @@
     <i class="fas fa-spinner fa-spin text-4xl text-blue-600"></i>
   </div>
 {:else if artboard}
-  <div class="h-screen overflow-hidden flex relative">
+  <div class="h-screen flex relative">
     <!-- Floating Back Arrow -->
     <a href="/dashboard" class="absolute top-4 left-4 z-50 bg-white rounded-full p-3 shadow-lg border border-gray-200 text-gray-600 hover:text-gray-900 hover:shadow-xl transition-all">
       <i class="fas fa-arrow-left"></i>
     </a>
 
     <!-- Main Content Area -->
-    <div class="flex-1">
+    <div class="flex-1 overflow-auto">
       <ColorPicker
         {artboardId}
         artboardName={artboard.name}
@@ -144,7 +144,7 @@
     </div>
 
     <!-- Fixed Right Sidebar -->
-    <div class="w-80 bg-gray-50 border-l border-gray-200 flex flex-col h-screen z-50 relative">
+    <div class="w-80 bg-gray-50 border-l border-gray-200 flex flex-col h-screen z-50 relative shrink-0">
       <!-- Sidebar Content -->
       <div class="flex-1 overflow-y-auto p-4 space-y-6">
         <!-- Sample Size Control -->

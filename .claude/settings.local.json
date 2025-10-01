@@ -8,7 +8,8 @@
       "Bash(cd:*)",
       "Bash(npm install pino pino-pretty)",
       "Bash(mysql:*)",
-      "Bash(docker-compose:*)"
+      "Bash(docker-compose:*)",
+      "Bash(ssh:*)"
     ],
     "deny": [],
     "ask": []
