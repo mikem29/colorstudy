@@ -1,0 +1,44 @@
+{
+  "completed": [
+    {
+      "category": "refactoring",
+      "description": "Drag refactoring complete - Eye dropper works well",
+      "priority": "high",
+      "created_date": "2025-10-01T00:00:00Z",
+      "completed_date": "2025-10-01T00:00:00Z",
+      "status": "completed",
+      "related_files": []
+    }
+  ],
+  "requires_examination": [
+    {
+      "category": "bug",
+      "description": "Average point sampling does not work",
+      "priority": "high",
+      "created_date": "2025-10-01T00:00:00Z",
+      "last_updated": "2025-10-01T00:00:00Z",
+      "status": "pending",
+      "related_files": []
+    },
+    {
+      "category": "bug",
+      "description": "When creating artboards, the size always defaults to 8.5x11 instead of using the actual settings from the 'add artboard settings'. The size saves correctly in the database but the artboard visual is always 8.5x11.",
+      "priority": "high",
+      "created_date": "2025-10-01T00:00:00Z",
+      "last_updated": "2025-10-01T00:00:00Z",
+      "status": "pending",
+      "related_files": []
+    },
+    {
+      "category": "bug",
+      "description": "Connection lines do not show a circle for the average sample area. For example, if you choose 11x11 sample size, it should show an 11x11 circle to indicate that. For 1x1 pixel, it should show a simple DOT, not an arrow.",
+      "priority": "medium",
+      "created_date": "2025-10-01T00:00:00Z",
+      "last_updated": "2025-10-01T00:00:00Z",
+      "status": "pending",
+      "related_files": []
+    }
+  ],
+  "testing_needed": [],
+  "needs_more_testing": []
+}
