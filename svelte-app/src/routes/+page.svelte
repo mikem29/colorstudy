@@ -31,16 +31,15 @@
         </a>
       </div>
 
-      <!-- Feature Preview Image Placeholder -->
-      <div class="bg-white rounded-2xl shadow-2xl p-8 max-w-4xl mx-auto">
-        <div class="bg-gradient-to-br from-gray-100 to-gray-200 rounded-xl h-96 flex items-center justify-center">
-          <div class="text-center">
-            <svg class="w-24 h-24 mx-auto mb-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M7 21a4 4 0 01-4-4V5a2 2 0 012-2h4a2 2 0 012 2v12a4 4 0 01-4 4zm0 0h12a2 2 0 002-2v-4a2 2 0 00-2-2h-2.343M11 7.343l1.657-1.657a2 2 0 012.828 0l2.829 2.829a2 2 0 010 2.828l-8.486 8.485M7 17h.01"/>
-            </svg>
-            <p class="text-gray-500 text-lg font-medium">Swatches with visual lines to their source</p>
-            <p class="text-gray-400 text-sm mt-2">See exactly where each color came from in your reference image</p>
-          </div>
+      <!-- Feature Preview Image -->
+      <div class="bg-white rounded-2xl shadow-2xl p-4 sm:p-6 max-w-5xl mx-auto">
+        <div class="bg-gray-900 rounded-xl overflow-hidden">
+          <img
+            src="/images/screen_2.png"
+            alt="ColorStudy main workflow screenshot"
+            class="w-full h-auto object-contain"
+            loading="eager"
+          />
         </div>
       </div>
     </div>
@@ -132,8 +131,8 @@
     <div class="grid grid-cols-1 md:grid-cols-3 gap-8">
       <!-- Use Case 1 -->
       <div class="group bg-white rounded-2xl shadow-xl overflow-hidden border border-gray-100">
-        <div class="relative aspect-[4/3] bg-gradient-to-br from-blue-50 to-purple-50">
-          <img src="/uploads/1758821517384_twqzq.png" alt="Fine art reference with extracted swatches" class="w-full h-full object-cover">
+        <div class="relative bg-gray-900 p-4 sm:p-6">
+          <img src="/images/screen_2.png" alt="Fine art reference with extracted swatches" class="w-full h-auto rounded-lg shadow-lg" loading="lazy">
           <div class="absolute top-3 left-3 px-3 py-1 rounded-full bg-blue-600 text-white text-xs font-semibold shadow">
             <i class="fas fa-palette mr-1"></i> Fine Art Study
           </div>
