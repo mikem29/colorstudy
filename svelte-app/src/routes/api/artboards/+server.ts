@@ -1,5 +1,6 @@
 import { json, error } from '@sveltejs/kit';
 import { getPool } from '$lib/server/db';
+import { logger } from '$lib/server/logger';
 import type { RequestHandler } from './$types';
 
 const pool = getPool();
@@ -12,6 +13,7 @@ export const GET: RequestHandler = async ({ locals }) => {
   }
 
   try {
+    logger.info({ userId: locals.user.id }, 'Fetching artboards for user');
     const connection = await pool.getConnection();
 
     try {
@@ -23,21 +25,43 @@ export const GET: RequestHandler = async ({ locals }) => {
           a.height_inches,
           a.created_at,
           COUNT(DISTINCT i.id) as image_count,
-          COUNT(DISTINCT s.id) as swatch_count
+          COUNT(DISTINCT s.id) as swatch_count,
+          (
+            SELECT i2.file_path
+            FROM images i2
+            WHERE i2.artboard_id = a.id
+            ORDER BY i2.id ASC
+            LIMIT 1
+          ) as first_image_path
         FROM artboards a
         LEFT JOIN images i ON a.id = i.artboard_id AND i.user_id = ?
         LEFT JOIN swatches s ON a.id = s.artboard_id AND s.user_id = ?
         WHERE a.user_id = ?
-        GROUP BY a.id
+        GROUP BY a.id, a.name, a.width_inches, a.height_inches, a.created_at
         ORDER BY a.created_at DESC
       `, [locals.user.id, locals.user.id, locals.user.id]);
 
-      return json({ status: 'success', data: rows });
+      // Process rows to add thumbnail paths
+      const processedRows = (rows as any[]).map(row => {
+        let thumbnail_path = null;
+        if (row.first_image_path) {
+          // Convert "uploads/filename.jpg" to "uploads/thumbs/filename.jpg"
+          const pathParts = row.first_image_path.split('/');
+          if (pathParts.length === 2 && pathParts[0] === 'uploads') {
+            thumbnail_path = `uploads/thumbs/${pathParts[1]}`;
+          }
+        }
+        return {
+          ...row,
+          thumbnail_path
+        };
+      });
+      return json({ status: 'success', data: processedRows });
     } finally {
       connection.release();
     }
   } catch (err) {
-    console.error('Error fetching artboards:', err);
+    logger.error({ err, stack: (err as Error).stack }, 'Error fetching artboards');
     return json({ status: 'error', message: 'Failed to fetch artboards.' }, { status: 500 });
   }
 };

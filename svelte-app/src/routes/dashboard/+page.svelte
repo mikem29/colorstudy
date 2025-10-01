@@ -217,10 +217,18 @@
               class="aspect-video bg-gradient-to-br from-blue-50 to-purple-50 relative overflow-hidden flex items-center justify-center"
               onclick={() => openArtboard(artboard.id)}
             >
-              <div class="text-center">
-                <i class="fas fa-artstation text-gray-400 text-4xl mb-2"></i>
-                <p class="text-sm text-gray-600 font-medium">{artboard.width_inches}" × {artboard.height_inches}"</p>
-              </div>
+              {#if artboard.thumbnail_path}
+                <img
+                  src="/{artboard.thumbnail_path}"
+                  alt={artboard.name}
+                  class="w-full h-full object-cover"
+                />
+              {:else}
+                <div class="text-center">
+                  <i class="fas fa-artstation text-gray-400 text-4xl mb-2"></i>
+                  <p class="text-sm text-gray-600 font-medium">{artboard.width_inches}" × {artboard.height_inches}"</p>
+                </div>
+              {/if}
               <div class="absolute inset-0 bg-gradient-to-t from-black/10 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-200"></div>
 
               <!-- Delete Button -->
@@ -256,6 +264,10 @@
                   {artboard.name}
                 </h3>
               {/if}
+              <div class="text-xs text-gray-500 mb-1" onclick={() => openArtboard(artboard.id)}>
+                <i class="fas fa-ruler-combined mr-1"></i>
+                {artboard.width_inches}" × {artboard.height_inches}"
+              </div>
               <div class="text-xs text-gray-400" onclick={() => openArtboard(artboard.id)}>
                 <i class="fas fa-calendar mr-1"></i>
                 {new Date(artboard.created_at).toLocaleDateString()}

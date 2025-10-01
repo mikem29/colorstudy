@@ -3,7 +3,12 @@
     "allow": [
       "Bash(git push:*)",
       "Bash(cat:*)",
-      "Bash(node:*)"
+      "Bash(node:*)",
+      "Bash(curl -s http://localhost:5173/api/artboards -H \"Cookie: session=test\")",
+      "Bash(cd:*)",
+      "Bash(npm install pino pino-pretty)",
+      "Bash(mysql:*)",
+      "Bash(docker-compose:*)"
     ],
     "deny": [],
     "ask": []

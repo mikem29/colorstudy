@@ -56,7 +56,7 @@ export async function GET({ params }) {
 }
 
 // Add image to artboard
-export async function POST({ params, request }) {
+export async function POST({ params, request, locals }) {
   try {
     const { id } = params;
     const { filename, image_x = 0, image_y = 0, image_width, image_height } = await request.json();
@@ -64,8 +64,8 @@ export async function POST({ params, request }) {
     const connection = await getConnection();
 
     const [result] = await connection.execute(
-      'INSERT INTO images (artboard_id, file_path, image_x, image_y, image_width, image_height) VALUES (?, ?, ?, ?, ?, ?)',
-      [id, filename, image_x, image_y, image_width, image_height]
+      'INSERT INTO images (artboard_id, file_path, image_x, image_y, image_width, image_height, user_id) VALUES (?, ?, ?, ?, ?, ?, ?)',
+      [id, filename, image_x, image_y, image_width, image_height, locals.user?.id || null]
     );
 
     await connection.end();

@@ -1,0 +1,14 @@
+version: '3.8'
+
+services:
+  phpmyadmin:
+    image: phpmyadmin/phpmyadmin
+    container_name: colorstudy_phpmyadmin
+    environment:
+      - PMA_HOST=host.docker.internal
+      - PMA_PORT=3306
+      - PMA_USER=m29user
+      - PMA_PASSWORD=m29Pa55word
+    ports:
+      - "8081:80"
+    restart: unless-stopped
