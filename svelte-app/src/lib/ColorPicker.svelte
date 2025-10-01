@@ -699,13 +699,45 @@
   }
 
   function handleZoomClick(event, x, y) {
+    const oldZoom = zoomLevel * 0.9; // Account for the 0.9 scale factor
+    let newZoom;
+
     if (event.shiftKey || isAltPressed || zoomMode === 'out') {
       // Zoom out
-      zoomLevel = Math.max(0.1, zoomLevel - 0.2);
+      newZoom = Math.max(0.1, zoomLevel - 0.2);
     } else {
       // Zoom in
-      zoomLevel = Math.min(5, zoomLevel + 0.2);
+      newZoom = Math.min(5, zoomLevel + 0.2);
     }
+
+    // Get workspace element to find center
+    const workspace = document.querySelector('.artboard-workspace');
+    if (!workspace) {
+      zoomLevel = newZoom;
+      return;
+    }
+
+    const workspaceRect = workspace.getBoundingClientRect();
+
+    // Calculate center of the viewport
+    const viewportCenterX = workspaceRect.width / 2;
+    const viewportCenterY = workspaceRect.height / 2;
+
+    // Get the clicked point relative to workspace
+    const clickedViewportX = event.clientX - workspaceRect.left;
+    const clickedViewportY = event.clientY - workspaceRect.top;
+
+    // Convert clicked point to artboard coordinates (before zoom)
+    const artboardX = (clickedViewportX - panX) / oldZoom;
+    const artboardY = (clickedViewportY - panY) / oldZoom;
+
+    // Update zoom
+    const actualNewZoom = newZoom * 0.9;
+    zoomLevel = newZoom;
+
+    // Calculate new pan so the clicked point appears at the center of viewport
+    panX = viewportCenterX - (artboardX * actualNewZoom);
+    panY = viewportCenterY - (artboardY * actualNewZoom);
   }
 
   function selectImage(imageId, index) {
@@ -2316,7 +2348,8 @@
     style="
       width: {artboardWidthInches}in;
       height: {artboardHeightInches}in;
-      transform: scale({zoomLevel * 0.9});
+      transform: translate({panX}px, {panY}px) scale({zoomLevel * 0.9});
+      transform-origin: 0 0;
       transition: transform 0.2s ease;
       overflow: visible;
     "
