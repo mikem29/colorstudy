@@ -16,7 +16,6 @@ export const actions: Actions = {
     const formData = await event.request.formData();
     const email = formData.get("email");
     const password = formData.get("password");
-    const confirmPassword = formData.get("confirmPassword");
 
     if (
       typeof email !== "string" ||
@@ -32,12 +31,6 @@ export const actions: Actions = {
     if (typeof password !== "string" || password.length < 6 || password.length > 255) {
       return fail(400, {
         error: "Password must be between 6 and 255 characters",
-        email
-      });
-    }
-    if (password !== confirmPassword) {
-      return fail(400, {
-        error: "Passwords do not match",
         email
       });
     }

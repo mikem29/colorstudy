@@ -8,60 +8,48 @@
   <title>Sign Up - ColorStudy</title>
 </svelte:head>
 
-<div class="min-h-screen flex items-center justify-center bg-gray-50 py-12 px-4 sm:px-6 lg:px-8">
-  <div class="max-w-md w-full space-y-8">
-    <div>
-      <h2 class="mt-6 text-center text-3xl font-extrabold text-gray-900">
+<div class="min-h-screen bg-gray-50 pt-16 pb-12 px-4 sm:px-6 lg:px-8">
+  <div class="max-w-md mx-auto">
+    <div class="text-center mb-8">
+      <h2 class="text-4xl font-bold text-gray-900 mb-3">
         Create your account
       </h2>
-      <p class="mt-2 text-center text-sm text-gray-600">
-        Or
-        <a href="/login" class="font-medium text-indigo-600 hover:text-indigo-500">
-          sign in to your existing account
+      <p class="text-lg text-gray-600 mb-6">
+        Start creating color studies from your reference material
+      </p>
+      <p class="text-sm text-gray-600">
+        Already have an account?
+        <a href="/login" class="font-medium text-blue-600 hover:text-blue-500">
+          Sign in
         </a>
       </p>
     </div>
-    <form method="POST" use:enhance class="mt-8 space-y-6">
-      <div class="rounded-md shadow-sm -space-y-px">
-        <div>
-          <label for="email-address" class="sr-only">Email address</label>
-          <input
-            id="email-address"
-            name="email"
-            type="email"
-            autocomplete="email"
-            required
-            class="appearance-none rounded-none relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 rounded-t-md focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 focus:z-10 sm:text-sm"
-            placeholder="Email address"
-            value={form?.email ?? ''}
-          />
-        </div>
-        <div>
-          <label for="password" class="sr-only">Password</label>
-          <input
-            id="password"
-            name="password"
-            type="password"
-            autocomplete="new-password"
-            required
-            class="appearance-none rounded-none relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 focus:z-10 sm:text-sm"
-            placeholder="Password (minimum 6 characters)"
-            minlength="6"
-          />
-        </div>
-        <div>
-          <label for="confirm-password" class="sr-only">Confirm Password</label>
-          <input
-            id="confirm-password"
-            name="confirmPassword"
-            type="password"
-            autocomplete="new-password"
-            required
-            class="appearance-none rounded-none relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 rounded-b-md focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 focus:z-10 sm:text-sm"
-            placeholder="Confirm Password"
-            minlength="6"
-          />
-        </div>
+    <form method="POST" use:enhance class="bg-white shadow-lg rounded-lg px-8 pt-8 pb-8 space-y-5">
+      <div>
+        <label for="email-address" class="block text-sm font-medium text-gray-700 mb-1">Email address</label>
+        <input
+          id="email-address"
+          name="email"
+          type="email"
+          autocomplete="email"
+          required
+          class="appearance-none block w-full px-4 py-3 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+          placeholder="you@example.com"
+          value={form?.email ?? ''}
+        />
+      </div>
+      <div>
+        <label for="password" class="block text-sm font-medium text-gray-700 mb-1">Password</label>
+        <input
+          id="password"
+          name="password"
+          type="password"
+          autocomplete="new-password"
+          required
+          class="appearance-none block w-full px-4 py-3 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+          placeholder="Minimum 6 characters"
+          minlength="6"
+        />
       </div>
 
       {#if form?.error}
@@ -73,7 +61,7 @@
       <div>
         <button
           type="submit"
-          class="group relative w-full flex justify-center py-2 px-4 border border-transparent text-sm font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+          class="w-full flex justify-center py-3 px-4 border border-transparent font-semibold rounded-md text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors"
         >
           Create Account
         </button>
