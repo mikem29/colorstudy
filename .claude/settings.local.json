@@ -1,6 +1,11 @@
 {
   "permissions": {
     "allow": [
+      "Read(*)",
+      "Bash(*)",
+      "Search(*)",                          
+      "Edit(*)",
+      "Write(*)",
       "Bash(npm create:*)",
       "Bash(npx sv:*)",
       "Bash(npm init:*)",
