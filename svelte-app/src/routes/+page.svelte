@@ -111,6 +111,72 @@
   </div>
 </div>
 
+<!-- Showcase Section: three use-case screenshots -->
+<section class="relative py-24 bg-gradient-to-b from-white to-blue-50/60">
+  <div class="absolute inset-0 -z-10">
+    <div class="absolute -top-10 -left-10 w-72 h-72 bg-blue-300/20 blur-3xl rounded-full"></div>
+    <div class="absolute bottom-0 right-0 w-80 h-80 bg-purple-300/20 blur-3xl rounded-full"></div>
+  </div>
+
+  <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+    <div class="text-center mb-14">
+      <span class="inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold bg-blue-100 text-blue-700 mb-4">
+        <i class="fas fa-wand-magic-sparkles mr-2"></i> See it in action
+      </span>
+      <h2 class="text-4xl md:text-5xl font-bold text-gray-900 mb-4">Real Workflows, Real Results</h2>
+      <p class="text-lg text-gray-600 max-w-3xl mx-auto">
+        Three common use cases showing how ColorStudy adapts to your creative flow.
+      </p>
+    </div>
+
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-8">
+      <!-- Use Case 1 -->
+      <div class="group bg-white rounded-2xl shadow-xl overflow-hidden border border-gray-100">
+        <div class="relative aspect-[4/3] bg-gradient-to-br from-blue-50 to-purple-50">
+          <img src="/uploads/1758821517384_twqzq.png" alt="Fine art reference with extracted swatches" class="w-full h-full object-cover">
+          <div class="absolute top-3 left-3 px-3 py-1 rounded-full bg-blue-600 text-white text-xs font-semibold shadow">
+            <i class="fas fa-palette mr-1"></i> Fine Art Study
+          </div>
+        </div>
+        <div class="p-6">
+          <h3 class="text-xl font-semibold text-gray-900 mb-2">Paint From Accurate Swatches</h3>
+          <p class="text-gray-600">Extract true colors from your reference and print them at real size for your easel.</p>
+        </div>
+      </div>
+
+      <!-- Use Case 2 -->
+      <div class="group bg-white rounded-2xl shadow-xl overflow-hidden border border-gray-100">
+        <div class="relative aspect-[4/3] bg-gradient-to-br from-emerald-50 to-teal-50">
+          <img src="/uploads/1758833212099_3bgd9.png" alt="Brand palette exploration with grouped lines" class="w-full h-full object-cover">
+          <div class="absolute top-3 left-3 px-3 py-1 rounded-full bg-emerald-600 text-white text-xs font-semibold shadow">
+            <i class="fas fa-swatchbook mr-1"></i> Brand Design
+          </div>
+        </div>
+        <div class="p-6">
+          <h3 class="text-xl font-semibold text-gray-900 mb-2">Build Cohesive Palettes</h3>
+          <p class="text-gray-600">Group swatches with colored guide lines and keep visual context from the source.</p>
+        </div>
+      </div>
+
+      <!-- Use Case 3 -->
+      <div class="group bg-white rounded-2xl shadow-xl overflow-hidden border border-gray-100">
+        <div class="relative aspect-[4/3] bg-gradient-to-br from-amber-50 to-orange-50">
+          <img src="/uploads/1758821422954_9ly9xi.jpg" alt="UI theming from screenshots" class="w-full h-full object-cover">
+          <div class="absolute top-3 left-3 px-3 py-1 rounded-full bg-amber-600 text-white text-xs font-semibold shadow">
+            <i class="fas fa-desktop mr-1"></i> UI Theming
+          </div>
+        </div>
+        <div class="p-6">
+          <h3 class="text-xl font-semibold text-gray-900 mb-2">Theme Interfaces Quickly</h3>
+          <p class="text-gray-600">Sample colors from app screenshots to define token sets and component styles.</p>
+        </div>
+      </div>
+    </div>
+
+    <p class="text-center text-sm text-gray-500 mt-6">You can replace these placeholder screenshots with your own examples anytime.</p>
+  </div>
+</section>
+
 <!-- CTA Section -->
 <div class="bg-gradient-to-br from-blue-600 to-purple-600 text-white py-24">
   <div class="max-w-4xl mx-auto text-center px-4 sm:px-6 lg:px-8">
