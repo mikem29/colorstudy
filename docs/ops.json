@@ -20,18 +20,21 @@
         "/Volumes/X9 Pro/Projects/MicroSass/colorstudy/svelte-app/src/lib/ColorPicker.svelte"
       ],
       "resolution_details": "Changed initialization to use props (artboardWidth/artboardHeight) instead of hardcoded 8.5x11 values, and ensured calculateArtboardSize() is called immediately in onMount()"
+    },
+    {
+      "category": "bug",
+      "description": "Homepage (/) was only available to logged-in users, preventing anonymous access - Fixed by removing authentication redirect",
+      "priority": "critical",
+      "created_date": "2025-10-01T00:00:00Z",
+      "completed_date": "2025-10-01T00:00:00Z",
+      "status": "completed",
+      "related_files": [
+        "/Volumes/X9 Pro/Projects/MicroSass/colorstudy/svelte-app/src/routes/+page.server.ts"
+      ],
+      "resolution_details": "Removed authentication redirect from /Volumes/X9 Pro/Projects/MicroSass/colorstudy/svelte-app/src/routes/+page.server.ts. The homepage is now public and accessible to all users."
     }
   ],
   "requires_examination": [
-    {
-      "category": "bug",
-      "description": "Homepage (/) is only available to logged-in users, which is backwards. The root route should be accessible to everyone without redirecting to login/signup. This is a critical problem because it prevents anonymous users from viewing the homepage content.",
-      "priority": "critical",
-      "created_date": "2025-10-01T00:00:00Z",
-      "last_updated": "2025-10-01T00:00:00Z",
-      "status": "pending",
-      "related_files": []
-    },
     {
       "category": "bug",
       "description": "Average point sampling does not work",

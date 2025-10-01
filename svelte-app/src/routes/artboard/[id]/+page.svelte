@@ -12,6 +12,8 @@
   let uploadingImage = false;
   let showConnectionLines = true;
   let showColorFormatOnSwatch = true;
+  let samplingSize = 1;
+  let colorFormat = 'RGB';
 
   $: artboardId = $page.params.id;
 
@@ -133,6 +135,8 @@
         enableMultipleImages={true}
         {showConnectionLines}
         {showColorFormatOnSwatch}
+        {samplingSize}
+        {colorFormat}
         onSwatchCreated={handleSwatchCreated}
         onImageUpload={handleFileUpload}
       />
@@ -148,12 +152,14 @@
             <i class="fas fa-crosshairs mr-2"></i>
             Sample Size
           </label>
-          <select class="w-full px-3 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
-            <option value="1">1×1 (Point)</option>
-            <option value="3">3×3</option>
-            <option value="5">5×5</option>
-            <option value="11">11×11</option>
-            <option value="31">31×31</option>
+          <select bind:value={samplingSize} class="w-full px-3 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
+            <option value={1}>Point Sample</option>
+            <option value={3}>3 by 3 Average</option>
+            <option value={5}>5 by 5 Average</option>
+            <option value={11}>11 by 11 Average</option>
+            <option value={31}>31 by 31 Average</option>
+            <option value={51}>51 by 51 Average</option>
+            <option value={101}>101 by 101 Average</option>
           </select>
           <p class="text-xs text-gray-500">Controls the area used for color sampling</p>
         </div>
@@ -164,7 +170,7 @@
             <i class="fas fa-palette mr-2"></i>
             Color Format
           </label>
-          <select class="w-full px-3 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
+          <select bind:value={colorFormat} class="w-full px-3 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
             <option value="RGB">RGB</option>
             <option value="CMYK">CMYK</option>
           </select>

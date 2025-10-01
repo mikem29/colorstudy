@@ -13,6 +13,8 @@
     enableMultipleImages = false,
     showConnectionLines = true,
     showColorFormatOnSwatch = true,
+    samplingSize: propSamplingSize = 1,
+    colorFormat: propColorFormat = 'RGB',
     onSwatchCreated,
     onImageUpload
   } = $props();
@@ -95,8 +97,17 @@
   let resizeHandle = $state(''); // 'nw', 'ne', 'sw', 'se', 'n', 'e', 's', 'w'
   let resizeUpdateTimeout = null;
 
-  let samplingSize = $state(1);
-  let colorFormat = $state('RGB');
+  let samplingSize = $state(propSamplingSize);
+  let colorFormat = $state(propColorFormat);
+
+  // Update internal state when props change
+  $effect(() => {
+    samplingSize = propSamplingSize;
+  });
+
+  $effect(() => {
+    colorFormat = propColorFormat;
+  });
 
   // Manual swatch placement states
   let isPlacingSwatch = $state(false);
