@@ -163,10 +163,13 @@
           const ctx = canvas.getContext('2d', { willReadFrequently: true });
           ctx.drawImage(img, 0, 0);
 
+          // Test that canvas has actual image data
+          const testPixel = ctx.getImageData(Math.floor(canvas.width/2), Math.floor(canvas.height/2), 1, 1).data;
+          console.log('ColorPicker: Canvas created for image', imageData.id, 'size:', canvas.width, 'x', canvas.height);
+          console.log('ColorPicker: Test pixel at center after creation:', testPixel[0], testPixel[1], testPixel[2], testPixel[3]);
+
           // Store canvas in map
           imageCanvases.set(imageData.id, canvas);
-
-          console.log('ColorPicker: Canvas created for image', imageData.id, 'size:', canvas.width, 'x', canvas.height);
 
           // Update with actual original dimensions
           const updatedImages = [...artboardImages];
@@ -2356,23 +2359,7 @@
             "
           />
 
-          <!-- Hidden canvas for eyedropper functionality -->
-          {#if index === 0}
-            <canvas
-              bind:this={canvas}
-              class="hidden"
-              width={image.originalWidth || image.width}
-              height={image.originalHeight || image.height}
-              use:drawImageOnCanvas={image}
-            ></canvas>
-          {:else}
-            <canvas
-              class="hidden"
-              width={image.originalWidth || image.width}
-              height={image.originalHeight || image.height}
-              use:drawImageOnCanvas={image}
-            ></canvas>
-          {/if}
+          <!-- Canvas for eyedropper is created in onMount, not in DOM -->
 
           <!-- Loading indicator for images still loading dimensions -->
           {#if image.needsOriginalDimensions}
