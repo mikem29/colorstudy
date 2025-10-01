@@ -52,8 +52,8 @@
   let swatchIndex = $state(0);
 
   // Artboard system
-  let artboardWidthInches = $state(8.5);
-  let artboardHeightInches = $state(11.0);
+  let artboardWidthInches = $state(artboardWidth || 8.5);
+  let artboardHeightInches = $state(artboardHeight || 11.0);
   let artboardWidthPx = $state(0);
   let artboardHeightPx = $state(0);
   let imageX = $state(0);
@@ -134,6 +134,9 @@
 
 
   onMount(() => {
+    // Calculate artboard size immediately from props
+    calculateArtboardSize();
+
     // Initialize artboard images from existing images
     if (enableMultipleImages && existingImages.length > 0) {
       artboardImages = existingImages.map(img => ({

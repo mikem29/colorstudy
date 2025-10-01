@@ -23,7 +23,7 @@
     {
       "category": "bug",
       "description": "When creating artboards, the size always defaults to 8.5x11 instead of using the actual settings from the 'add artboard settings'. The size saves correctly in the database but the artboard visual is always 8.5x11.",
-      "priority": "high",
+      "priority": "critical",
       "created_date": "2025-10-01T00:00:00Z",
       "last_updated": "2025-10-01T00:00:00Z",
       "status": "pending",
