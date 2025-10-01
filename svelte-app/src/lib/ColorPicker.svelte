@@ -96,13 +96,13 @@
   let lineColorPickerIndex = $state(-1);
   let lineColorPickerPosition = $state({ x: 0, y: 0 });
 
-  // Preset colors for line color picker (25 basic colors)
+  // Preset colors for line color picker (25 colors with greys)
   const presetColors = [
     '#000000', '#FFFFFF', '#FF0000', '#00FF00', '#0000FF',
     '#FFFF00', '#FF00FF', '#00FFFF', '#FFA500', '#800080',
-    '#008000', '#000080', '#FFC0CB', '#A52A2A', '#808080',
-    '#FFD700', '#4B0082', '#FF6347', '#40E0D0', '#EE82EE',
-    '#F0E68C', '#7FFF00', '#DC143C', '#00CED1', '#9932CC'
+    '#1A1A1A', '#333333', '#4D4D4D', '#666666', '#808080',
+    '#999999', '#B3B3B3', '#CCCCCC', '#E6E6E6', '#F5F5F5',
+    '#A52A2A', '#4B0082', '#FF6347', '#40E0D0', '#EE82EE'
   ];
 
   // Image manipulation state
@@ -123,6 +123,17 @@
 
   $effect(() => {
     colorFormat = propColorFormat;
+  });
+
+  // Track changes to swatchPlaceholders
+  $effect(() => {
+    if (swatchPlaceholders.length > 0) {
+      const firstLineColor = swatchPlaceholders[0]?.data?.lineColor;
+      console.log('$effect: swatchPlaceholders changed! First swatch lineColor:', firstLineColor);
+      if (firstLineColor === undefined && swatchPlaceholders[0]?.filled) {
+        console.trace('WARNING: lineColor became undefined! Stack trace:');
+      }
+    }
   });
 
   // Manual swatch placement states
@@ -1459,14 +1470,21 @@
   function createPlaceholders() {
     const maxSwatches = 8;
 
+    // Don't recreate if placeholders already exist with filled swatches (preserve IDs)
+    if (swatchPlaceholders.length > 0 && swatchPlaceholders.some(p => p.filled)) {
+      console.log('createPlaceholders: Skipping - placeholders already exist');
+      return;
+    }
+
     // If we have existing swatches, load them first
     if (existingSwatches && existingSwatches.length > 0) {
       console.log('createPlaceholders: Loading existing swatches', existingSwatches);
       console.log('createPlaceholders: First swatch raw:', existingSwatches[0]);
       console.log('createPlaceholders: First swatch id:', existingSwatches[0].id);
+      console.log('createPlaceholders: First swatch line_color:', existingSwatches[0].line_color);
       // Start with existing swatches
       swatchPlaceholders = existingSwatches.map(swatch => {
-        console.log('createPlaceholders: Mapping swatch id:', swatch.id);
+        console.log('createPlaceholders: Mapping swatch id:', swatch.id, 'line_color:', swatch.line_color);
         return {
           filled: true,
           data: {
@@ -1490,6 +1508,14 @@
 
       console.log('createPlaceholders: swatchPlaceholders after mapping:', swatchPlaceholders);
       console.log('createPlaceholders: First placeholder data.id:', swatchPlaceholders[0]?.data?.id);
+      console.log('createPlaceholders: First placeholder full data:', swatchPlaceholders[0]?.data);
+
+      // Log IDs of all loaded swatches
+      swatchPlaceholders.forEach((p, idx) => {
+        if (p.filled) {
+          console.log(`createPlaceholders: Swatch ${idx} has ID:`, p.data?.id, 'lineColor:', p.data?.lineColor);
+        }
+      });
 
       // Set the index to the next available slot
       swatchIndex = existingSwatches.length;
@@ -1548,16 +1574,32 @@
   }
 
   function handleNodeClick(swatch, index) {
-    console.log('handleNodeClick: FULL swatch object:', swatch);
-    console.log('handleNodeClick: swatch.filled:', swatch.filled);
-    console.log('handleNodeClick: swatch.data:', swatch.data);
-    console.log('handleNodeClick: swatch.data.id:', swatch.data.id);
+    console.log('handleNodeClick: index:', index);
+    console.log('handleNodeClick: swatchPlaceholders length:', swatchPlaceholders.length);
+
+    // Log ALL swatches to see which ones have IDs
+    console.log('handleNodeClick: ALL SWATCHES:');
+    swatchPlaceholders.forEach((p, idx) => {
+      if (p.filled) {
+        console.log(`  Swatch ${idx}: ID=${p.data?.id}, color=${p.data?.hexColor}, lineColor=${p.data?.lineColor}`);
+      }
+    });
+
     console.log('handleNodeClick: swatchPlaceholders[index]:', swatchPlaceholders[index]);
-    console.log('handleNodeClick: swatchPlaceholders[index].data.id:', swatchPlaceholders[index].data.id);
+
+    if (swatchPlaceholders[index]) {
+      console.log('handleNodeClick: swatchPlaceholders[index].data:', swatchPlaceholders[index].data);
+      console.log('handleNodeClick: swatchPlaceholders[index].data.id:', swatchPlaceholders[index].data?.id);
+
+      // Use the ID directly from swatchPlaceholders instead of the passed swatch
+      const actualSwatch = swatchPlaceholders[index];
+      console.log('handleNodeClick: Using actualSwatch.data.id:', actualSwatch.data?.id);
+    }
 
     // Show the color picker menu at the node position
     showLineColorPicker = true;
-    lineColorPickerSwatch = swatch;
+    // Use swatchPlaceholders[index] directly instead of the passed swatch parameter
+    lineColorPickerSwatch = swatchPlaceholders[index];
     lineColorPickerIndex = index;
 
     // Calculate position for the color picker popup
@@ -1572,12 +1614,22 @@
   }
 
   async function updateLineColor(color) {
-    if (!lineColorPickerSwatch || lineColorPickerIndex < 0) {
-      console.error('updateLineColor: Missing swatch or index', lineColorPickerSwatch, lineColorPickerIndex);
+    if (lineColorPickerIndex < 0 || !swatchPlaceholders[lineColorPickerIndex]) {
+      console.error('updateLineColor: Missing swatch at index', lineColorPickerIndex);
       return;
     }
 
-    console.log('updateLineColor: Updating swatch', lineColorPickerSwatch.data.id, 'to color', color);
+    // Get the swatch directly from the array to ensure we have the latest data
+    const currentSwatch = swatchPlaceholders[lineColorPickerIndex];
+    const swatchId = currentSwatch.data?.id;
+
+    console.log('updateLineColor: Current swatch:', currentSwatch);
+    console.log('updateLineColor: Updating swatch ID', swatchId, 'to color', color);
+
+    if (!swatchId) {
+      console.error('updateLineColor: Swatch has no ID', currentSwatch);
+      return;
+    }
 
     try {
       // Update in database
@@ -1585,7 +1637,7 @@
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          swatch_id: lineColorPickerSwatch.data.id,
+          swatch_id: swatchId,
           line_color: color
         })
       });
@@ -1671,7 +1723,8 @@
       sampleX,
       sampleY,
       sampleSize: samplingSize,
-      imageId: imageId // Use the imageId passed as parameter
+      imageId: imageId, // Use the imageId passed as parameter
+      lineColor: '#000000' // Default line color
     };
 
 
@@ -1711,9 +1764,16 @@
       const result = await response.json();
 
       if (result.status === 'success' && result.inserted_ids && result.inserted_ids.length > 0) {
-        // Update the swatch with the returned ID
+        // Update the swatch with the returned ID - create new object for reactivity
         const insertedId = result.inserted_ids[0];
-        swatchPlaceholders[swatchIndex - 1].data.id = insertedId;
+        const targetIndex = swatchIndex - 1;
+        swatchPlaceholders[targetIndex] = {
+          ...swatchPlaceholders[targetIndex],
+          data: {
+            ...swatchPlaceholders[targetIndex].data,
+            id: insertedId
+          }
+        };
         console.log('Swatch saved with ID:', insertedId);
       } else if (result.status !== 'success') {
         console.error('Failed to save swatch:', result.message);
@@ -1883,6 +1943,7 @@
           swatchPlaceholders[index] = {
             filled: true,
             data: {
+              id: swatch.id,
               hexColor: swatch.hex_color,
               red: swatch.red,
               green: swatch.green,
@@ -1894,7 +1955,8 @@
               sampleX: swatch.sample_x,
               sampleY: swatch.sample_y,
               sampleSize: swatch.sample_size || 1,
-              imageId: swatch.image_id
+              imageId: swatch.image_id,
+              lineColor: swatch.line_color || '#000000'
             }
           };
         });
@@ -2646,6 +2708,11 @@
               ? swatchCenterY + tanAngle * Math.sign(dx) * halfWidth
               : swatchCenterY + Math.sign(dy) * halfHeight}
 
+            {@const displayLineColor = swatch.data.lineColor || swatch.data.hexColor}
+            {#if i === 0}
+              {console.log('Rendering line for swatch 0: lineColor=', swatch.data.lineColor, 'hexColor=', swatch.data.hexColor, 'using=', displayLineColor)}
+            {/if}
+
             <!-- Connection Line -->
             <svg
               class="absolute pointer-events-none"
@@ -2659,7 +2726,7 @@
             >
               <defs>
                 <marker id="arrowhead-{i}" markerWidth="6" markerHeight="4" refX="5" refY="2" orient="auto">
-                  <polygon points="0 0, 6 2, 0 4" fill="{swatch.data.lineColor || swatch.data.hexColor}" stroke="#333" stroke-width="0.5"/>
+                  <polygon points="0 0, 6 2, 0 4" fill="{displayLineColor}" stroke="#333" stroke-width="0.5"/>
                 </marker>
               </defs>
               <line
@@ -2667,7 +2734,7 @@
                 y1="{edgeY}"
                 x2="{sampleX}"
                 y2="{sampleY}"
-                stroke="{swatch.data.lineColor || swatch.data.hexColor}"
+                stroke="{displayLineColor}"
                 stroke-width="2"
                 stroke-dasharray="3,3"
                 opacity="0.7"
@@ -2683,7 +2750,7 @@
                 top: {edgeY - 6}px;
                 width: 12px;
                 height: 12px;
-                background-color: {swatch.data.lineColor || swatch.data.hexColor};
+                background-color: {displayLineColor};
                 border: 2px solid white;
                 box-shadow: 0 2px 4px rgba(0,0,0,0.2);
                 z-index: 1000;
