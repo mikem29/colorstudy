@@ -143,7 +143,7 @@
     </div>
 
     <!-- Fixed Right Sidebar -->
-    <div class="w-80 bg-gray-50 border-l border-gray-200 flex flex-col h-screen">
+    <div class="w-80 bg-gray-50 border-l border-gray-200 flex flex-col h-screen z-50 relative">
       <!-- Sidebar Content -->
       <div class="flex-1 overflow-y-auto p-4 space-y-6">
         <!-- Sample Size Control -->

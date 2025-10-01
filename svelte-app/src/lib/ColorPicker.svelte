@@ -1062,6 +1062,11 @@
     showZoomDropdown = false;
   }
 
+  let panStartX = $state(0);
+  let panStartY = $state(0);
+  let panStartOffsetX = $state(0);
+  let panStartOffsetY = $state(0);
+
   function onCanvasMouseDown(event) {
     // Don't interfere with swatch dragging
     if (isDragging) return;
@@ -1071,9 +1076,13 @@
 
     switch (currentTool) {
       case 'hand':
+        // Hand tool pans anywhere - on images, artboard, workspace
         isPanning = true;
-        panX = event.clientX;
-        panY = event.clientY;
+        panStartX = event.clientX;
+        panStartY = event.clientY;
+        panStartOffsetX = panX;
+        panStartOffsetY = panY;
+        event.preventDefault();
         break;
       case 'select':
         // Check if we have a selected image to work with
@@ -1087,10 +1096,9 @@
             y: event.clientY - selectedImage.y
           };
         }
+        event.preventDefault();
         break;
     }
-
-    event.preventDefault();
   }
 
 
@@ -1903,19 +1911,12 @@
 
     // Handle artboard tool interactions
     if (isPanning && currentTool === 'hand') {
-      // Handle panning
-      const deltaX = event.clientX - panX;
-      const deltaY = event.clientY - panY;
+      // Handle panning - update pan state variables
+      const deltaX = event.clientX - panStartX;
+      const deltaY = event.clientY - panStartY;
 
-      panX = event.clientX;
-      panY = event.clientY;
-
-      // Update the artboard transform
-      const artboard = document.querySelector('.artboard');
-      if (artboard) {
-        const currentTransform = artboard.style.transform || `scale(${zoomLevel * 0.9})`;
-        artboard.style.transform = `${currentTransform} translate(${deltaX}px, ${deltaY}px)`;
-      }
+      panX = panStartOffsetX + deltaX;
+      panY = panStartOffsetY + deltaY;
     } else if (isDraggingImage && currentTool === 'select' && selectedImageId) {
       // Handle image dragging with select tool for the selected image
       const selectedImage = getSelectedImage();
@@ -2229,6 +2230,17 @@
   class="artboard-workspace relative w-full min-h-screen bg-gradient-to-br from-gray-50 via-gray-100 to-gray-200 flex items-center justify-center p-8"
   onmousemove={handleMouseMove}
   onmouseup={handleMouseUp}
+  onmousedown={(e) => {
+    // Handle hand tool panning on workspace background
+    if (currentTool === 'hand' && e.target === e.currentTarget) {
+      isPanning = true;
+      panStartX = e.clientX;
+      panStartY = e.clientY;
+      panStartOffsetX = panX;
+      panStartOffsetY = panY;
+      e.preventDefault();
+    }
+  }}
   onclick={(e) => {
     showZoomDropdown = false;
     // Deselect selections when clicking outside the artboard area with select tool
@@ -2353,6 +2365,17 @@
       transition: transform 0.2s ease;
       overflow: visible;
     "
+    onmousedown={(e) => {
+      // Handle hand tool panning on artboard background (not on images/swatches)
+      if (currentTool === 'hand' && e.target.classList.contains('artboard')) {
+        isPanning = true;
+        panStartX = e.clientX;
+        panStartY = e.clientY;
+        panStartOffsetX = panX;
+        panStartOffsetY = panY;
+        e.preventDefault();
+      }
+    }}
     onclick={isPlacingSwatch ? handleSwatchPlacement : currentTool === 'place' ? handleImagePlacement : undefined}
   >
 
