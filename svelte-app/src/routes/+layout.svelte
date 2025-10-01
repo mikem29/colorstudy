@@ -3,8 +3,8 @@
   import { page } from '$app/stores';
   export let data;
 
-  // Only show the nav on non-artboard pages
-  $: showNav = !$page.url.pathname.includes('/artboard/');
+  // Only show the nav on non-artboard and non-dashboard pages
+  $: showNav = !$page.url.pathname.includes('/artboard/') && !$page.url.pathname.includes('/dashboard');
 </script>
 
 <div class="min-h-screen bg-gray-50">

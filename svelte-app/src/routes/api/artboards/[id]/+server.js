@@ -72,6 +72,39 @@ export async function POST({ params, request }) {
   }
 }
 
+// Update artboard name
+export async function PATCH({ params, request }) {
+  try {
+    const { id } = params;
+    const { name } = await request.json();
+
+    if (!name || !name.trim()) {
+      return json({ status: 'error', message: 'Name is required.' }, { status: 400 });
+    }
+
+    const connection = await getConnection();
+
+    const [result] = await connection.execute(
+      'UPDATE artboards SET name = ? WHERE id = ?',
+      [name.trim(), id]
+    );
+
+    await connection.end();
+
+    if (result.affectedRows === 0) {
+      return json({ status: 'error', message: 'Artboard not found.' }, { status: 404 });
+    }
+
+    return json({
+      status: 'success',
+      message: 'Artboard updated successfully.'
+    });
+  } catch (error) {
+    console.error('Error updating artboard:', error);
+    return json({ status: 'error', message: 'Failed to update artboard.' }, { status: 500 });
+  }
+}
+
 // Delete artboard
 export async function DELETE({ params }) {
   try {

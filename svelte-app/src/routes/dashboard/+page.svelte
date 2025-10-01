@@ -10,6 +10,8 @@
   let artboardName = $state('');
   let showDeleteModal = $state(false);
   let artboardToDelete = $state(null);
+  let editingArtboardId = $state(null);
+  let editingArtboardName = $state('');
 
   async function loadArtboards() {
     try {
@@ -61,6 +63,47 @@
       console.error('Error deleting artboard:', error);
       alert('Failed to delete artboard');
     }
+  }
+
+  function startEditingArtboard(artboard, event) {
+    event.stopPropagation();
+    editingArtboardId = artboard.id;
+    editingArtboardName = artboard.name;
+  }
+
+  async function saveArtboardName(artboardId) {
+    if (!editingArtboardName.trim()) {
+      editingArtboardId = null;
+      return;
+    }
+
+    try {
+      const response = await fetch(`/api/artboards/${artboardId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name: editingArtboardName })
+      });
+
+      const data = await response.json();
+
+      if (data.status === 'success') {
+        // Update the artboard name in the reactive state
+        artboards = artboards.map(a =>
+          a.id === artboardId ? { ...a, name: editingArtboardName } : a
+        );
+        editingArtboardId = null;
+      } else {
+        alert('Failed to update artboard name');
+      }
+    } catch (error) {
+      console.error('Error updating artboard:', error);
+      alert('Failed to update artboard name');
+    }
+  }
+
+  function cancelEditing() {
+    editingArtboardId = null;
+    editingArtboardName = '';
   }
 
   async function createArtboard() {
@@ -132,6 +175,13 @@
             <i class="fas fa-plus"></i>
             <span>New Artboard</span>
           </button>
+          <a
+            href="/profile"
+            class="p-2 text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-lg transition-colors duration-200"
+            title="Profile"
+          >
+            <i class="fas fa-user-circle text-2xl"></i>
+          </a>
         </div>
       </div>
     </div>
@@ -184,22 +234,29 @@
             </div>
 
             <!-- Artboard Info -->
-            <div class="p-4" onclick={() => openArtboard(artboard.id)}>
-              <h3 class="font-medium text-gray-900 mb-2 truncate">{artboard.name}</h3>
-
-              <!-- Metadata -->
-              <div class="flex items-center justify-between text-sm text-gray-500">
-                <span class="flex items-center">
-                  <i class="fas fa-images mr-1"></i>
-                  {artboard.image_count || 0} images
-                </span>
-                <span class="flex items-center">
-                  <i class="fas fa-palette mr-1"></i>
-                  {artboard.swatch_count || 0} swatches
-                </span>
-              </div>
-
-              <div class="mt-2 text-xs text-gray-400">
+            <div class="p-4">
+              {#if editingArtboardId === artboard.id}
+                <input
+                  type="text"
+                  bind:value={editingArtboardName}
+                  onblur={() => saveArtboardName(artboard.id)}
+                  onkeydown={(e) => {
+                    if (e.key === 'Enter') saveArtboardName(artboard.id);
+                    if (e.key === 'Escape') cancelEditing();
+                  }}
+                  onclick={(e) => e.stopPropagation()}
+                  class="w-full font-medium text-gray-900 mb-2 px-2 py-1 border border-blue-500 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  autofocus
+                />
+              {:else}
+                <h3
+                  class="font-medium text-gray-900 mb-2 truncate cursor-pointer hover:text-blue-600"
+                  onclick={(e) => startEditingArtboard(artboard, e)}
+                >
+                  {artboard.name}
+                </h3>
+              {/if}
+              <div class="text-xs text-gray-400" onclick={() => openArtboard(artboard.id)}>
                 <i class="fas fa-calendar mr-1"></i>
                 {new Date(artboard.created_at).toLocaleDateString()}
               </div>
