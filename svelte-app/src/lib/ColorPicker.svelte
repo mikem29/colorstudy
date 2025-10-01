@@ -1020,9 +1020,8 @@
     // Don't interfere with swatch dragging
     if (isDragging) return;
 
-    const rect = canvas.getBoundingClientRect();
-    const x = event.clientX - rect.left;
-    const y = event.clientY - rect.top;
+    // Note: This is called on img elements in the multi-image system
+    // The x/y coordinates are not used in this function
 
     switch (currentTool) {
       case 'hand':
@@ -1035,7 +1034,7 @@
         const selectedImage = getSelectedImage();
         if (selectedImage) {
           // For dragging, we need to calculate the offset from the click point to the image position
-          // Since the click is on the image canvas, we need to account for the image's position on the artboard
+          // Since the click is on the image element, we need to account for the image's position on the artboard
           isDraggingImage = true;
           imageDragStart = {
             x: event.clientX - selectedImage.x,
