@@ -1,6 +1,8 @@
 import { json, error } from '@sveltejs/kit';
-import { pool } from '$lib/server/auth';
+import { getPool } from '$lib/server/db';
 import type { RequestHandler } from './$types';
+
+const pool = getPool();
 
 // Get all artboards for the authenticated user
 export const GET: RequestHandler = async ({ locals }) => {

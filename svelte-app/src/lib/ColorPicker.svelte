@@ -149,10 +149,25 @@
         needsOriginalDimensions: true // Flag to load actual dimensions
       }));
 
-      // Load actual original dimensions for each image
+      // Load actual original dimensions for each image AND create canvas for eyedropper
       artboardImages.forEach(async (imageData, index) => {
         const img = new Image();
+        img.crossOrigin = 'anonymous';
+
         img.onload = () => {
+          // Create canvas for this image
+          const canvas = document.createElement('canvas');
+          canvas.width = img.naturalWidth;
+          canvas.height = img.naturalHeight;
+
+          const ctx = canvas.getContext('2d', { willReadFrequently: true });
+          ctx.drawImage(img, 0, 0);
+
+          // Store canvas in map
+          imageCanvases.set(imageData.id, canvas);
+
+          console.log('ColorPicker: Canvas created for image', imageData.id, 'size:', canvas.width, 'x', canvas.height);
+
           // Update with actual original dimensions
           const updatedImages = [...artboardImages];
           updatedImages[index] = {
@@ -163,6 +178,33 @@
           };
           artboardImages = updatedImages;
         };
+
+        img.onerror = () => {
+          // Retry without CORS
+          const img2 = new Image();
+          img2.onload = () => {
+            const canvas = document.createElement('canvas');
+            canvas.width = img2.naturalWidth;
+            canvas.height = img2.naturalHeight;
+
+            const ctx = canvas.getContext('2d', { willReadFrequently: true });
+            ctx.drawImage(img2, 0, 0);
+
+            imageCanvases.set(imageData.id, canvas);
+            console.log('ColorPicker: Canvas created (no CORS) for image', imageData.id);
+
+            const updatedImages = [...artboardImages];
+            updatedImages[index] = {
+              ...updatedImages[index],
+              originalWidth: img2.naturalWidth,
+              originalHeight: img2.naturalHeight,
+              needsOriginalDimensions: false
+            };
+            artboardImages = updatedImages;
+          };
+          img2.src = imageData.src;
+        };
+
         img.src = imageData.src;
       });
 
@@ -229,6 +271,30 @@
         if (currentTool !== 'hand') {
           originalTool = currentTool;
           currentTool = 'hand';
+        }
+      }
+
+      // Handle escape key to cancel drag operations
+      if (event.key === 'Escape') {
+        if (isDragging) {
+          // Cancel swatch drag
+          isDragging = false;
+          draggedSwatchIndex = -1;
+          event.preventDefault();
+          return;
+        }
+        if (isDraggingImage) {
+          // Cancel image drag
+          isDraggingImage = false;
+          event.preventDefault();
+          return;
+        }
+        if (isResizingImage) {
+          // Cancel image resize
+          isResizingImage = false;
+          resizeHandle = '';
+          event.preventDefault();
+          return;
         }
       }
 
@@ -345,14 +411,10 @@
   });
 
   onDestroy(() => {
-    // Clean up any remaining event listeners
-    document.removeEventListener('mouseup', handleGlobalMouseUp);
-    document.removeEventListener('mouseleave', handleGlobalMouseUp);
-    document.removeEventListener('mouseout', handleGlobalMouseUp);
-
     // Reset drag state
     isDragging = false;
     draggedSwatchIndex = -1;
+    // Event listeners are cleaned up by onMount's return function
   });
 
   function loadImageToCanvas(img) {
@@ -573,7 +635,7 @@
       return;
     }
 
-    const clickedCtx = clickedCanvas.getContext('2d');
+    const clickedCtx = clickedCanvas.getContext('2d', { willReadFrequently: true });
     if (!clickedCtx) {
       return;
     }
@@ -796,7 +858,6 @@
       if (!image.width || !image.height || image.width <= 0 || image.height <= 0 ||
           image.width === null || image.height === null ||
           isNaN(image.width) || isNaN(image.height)) {
-        console.error('Invalid image dimensions:', image.width, 'x', image.height);
         return;
       }
 
@@ -814,10 +875,12 @@
       // Only reload image if source changed or not yet loaded
       if (!isLoaded || currentImage?.src !== image.src) {
         const img = new Image();
+
+        // Try with crossOrigin first
         img.crossOrigin = 'anonymous';
 
         img.onload = function() {
-          const ctx = canvas.getContext('2d');
+          const ctx = canvas.getContext('2d', { willReadFrequently: true });
           ctx.clearRect(0, 0, canvas.width, canvas.height);
           ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
 
@@ -831,7 +894,28 @@
         };
 
         img.onerror = function() {
-          console.error('Failed to load image for canvas:', image.src);
+          // Retry without crossOrigin
+          const img2 = new Image();
+
+          img2.onload = function() {
+            const ctx = canvas.getContext('2d', { willReadFrequently: true });
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            ctx.drawImage(img2, 0, 0, canvas.width, canvas.height);
+
+            // Update canvas reference to ensure it's current
+            imageCanvases.set(image.id, canvas);
+            currentImage = { src: image.src, width: image.width, height: image.height };
+            isLoaded = true;
+
+            // Trigger connection line re-render by updating state
+            canvasLoadState++;
+          };
+
+          img2.onerror = function() {
+            console.error('Failed to load image for canvas:', image.src);
+          };
+
+          img2.src = image.src;
         };
 
         img.src = image.src;
@@ -930,6 +1014,9 @@
   }
 
   function onCanvasMouseDown(event) {
+    // Don't interfere with swatch dragging
+    if (isDragging) return;
+
     const rect = canvas.getBoundingClientRect();
     const x = event.clientX - rect.left;
     const y = event.clientY - rect.top;
@@ -1098,11 +1185,11 @@
       // Get the canvas for the hovered image
       const hoveredCanvas = imageCanvases.get(hoveredImageId);
       if (!hoveredCanvas) {
-          updateToolbarColorPreview('#000000', 0, 0, 0);
+        updateToolbarColorPreview('#000000', 0, 0, 0);
         return;
       }
 
-      const hoveredCtx = hoveredCanvas.getContext('2d');
+      const hoveredCtx = hoveredCanvas.getContext('2d', { willReadFrequently: true });
       if (!hoveredCtx) {
         updateToolbarColorPreview('#000000', 0, 0, 0);
         return;
@@ -1119,12 +1206,8 @@
       const canvasX = x * scaleX;
       const canvasY = y * scaleY;
 
-
       // Make sure we're within canvas bounds
       if (canvasX >= 0 && canvasX < hoveredCanvas.width && canvasY >= 0 && canvasY < hoveredCanvas.height) {
-        // Test if canvas has image data by sampling a pixel
-        const testPixel = hoveredCtx.getImageData(Math.floor(canvasX), Math.floor(canvasY), 1, 1);
-
         const { red, green, blue } = getAverageColor(hoveredCtx, canvasX, canvasY, samplingSize);
         const hexColor = rgbToHex(red, green, blue);
 
@@ -1703,11 +1786,8 @@
     isDragging = true;
     draggedSwatchIndex = index;
 
-    // Add document-level event listeners to handle mouse release outside the artboard
-    document.addEventListener('mouseup', handleGlobalMouseUp);
-    document.addEventListener('mouseleave', handleGlobalMouseUp);
-    // Also handle when mouse leaves the entire window/document
-    document.addEventListener('mouseout', handleGlobalMouseUp);
+    // Note: mouseup listeners are already added globally in onMount
+    // No need to re-add them here to avoid duplicate event firing
 
     const swatch = swatchPlaceholders[index];
 
@@ -1916,10 +1996,8 @@
   }
 
   function handleGlobalMouseUp() {
-    // Remove document-level event listeners
-    document.removeEventListener('mouseup', handleGlobalMouseUp);
-    document.removeEventListener('mouseleave', handleGlobalMouseUp);
-    document.removeEventListener('mouseout', handleGlobalMouseUp);
+    // Note: Listeners are managed globally in onMount/onDestroy
+    // Don't remove them here as they need to persist
 
     // Call the regular mouse up handler
     handleMouseUp();
@@ -1929,9 +2007,18 @@
     // Handle swatch dragging
     if (isDragging && draggedSwatchIndex !== -1) {
       const swatch = swatchPlaceholders[draggedSwatchIndex];
+      const wasDragging = isDragging;
+      const draggedIndex = draggedSwatchIndex;
 
-      // Save the new position to database
-      if (swatch && swatch.filled) {
+      // Reset drag state IMMEDIATELY to prevent sticky behavior
+      isDragging = false;
+      draggedSwatchIndex = -1;
+
+      // Note: No need to remove global listeners - they're managed by onMount/onDestroy
+      // Removing them here would break subsequent drags
+
+      // Save the new position to database (non-blocking)
+      if (wasDragging && swatch && swatch.filled) {
         // Get a valid image_id - use the swatch's stored imageId, fallback to first available image
         const validImageId = swatch.data.imageId || imageId || (artboardImages.length > 0 ? artboardImages[0].id : null);
 
@@ -1942,33 +2029,23 @@
           pos_y: swatch.data.posY
         };
 
-
-        try {
-          const response = await fetch('/api/swatches/update-position', {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json'
-            },
-            body: JSON.stringify(requestData)
+        // Don't await - fire and forget to prevent blocking UI
+        fetch('/api/swatches/update-position', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify(requestData)
+        }).then(response => response.json())
+          .then(result => {
+            if (result.status !== 'success') {
+              console.error('Failed to save position:', result.message);
+            }
+          })
+          .catch(error => {
+            console.error('Error saving position:', error);
           });
-
-          const result = await response.json();
-          if (result.status === 'success') {
-          } else {
-            console.error('Failed to save position:', result.message);
-          }
-        } catch (error) {
-          console.error('Error saving position:', error);
-        }
       }
-
-      isDragging = false;
-      draggedSwatchIndex = -1;
-
-      // Clean up document-level event listeners
-      document.removeEventListener('mouseup', handleGlobalMouseUp);
-      document.removeEventListener('mouseleave', handleGlobalMouseUp);
-      document.removeEventListener('mouseout', handleGlobalMouseUp);
 
       // Don't deselect swatch here - keep it selected after drag
     }

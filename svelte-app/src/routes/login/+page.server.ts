@@ -63,7 +63,9 @@ export const actions: Actions = {
   }
 };
 
-import { pool } from "$lib/server/auth";
+import { getPool } from "$lib/server/db";
+
+const pool = getPool();
 
 async function getUserByEmail(email: string) {
   const connection = await pool.getConnection();

@@ -29,7 +29,11 @@
       "Bash(git commit:*)",
       "Bash(node:*)",
       "Bash(find:*)",
-      "Bash(MYSQL_USER=m29user MYSQL_PASSWORD=m29Pa55word MYSQL_DATABASE=colorstudy npm run dev)"
+      "Bash(MYSQL_USER=m29user MYSQL_PASSWORD=m29Pa55word MYSQL_DATABASE=colorstudy npm run dev)",
+      "Bash(scp:*)",
+      "Bash(lsof:*)",
+      "Bash(xargs kill:*)",
+      "Bash(awk:*)"
     ],
     "deny": [],
     "ask": []

@@ -3,8 +3,10 @@ import { dev } from '$app/environment';
 import fs from 'fs';
 import path from 'path';
 import sharp from 'sharp';
-import { pool } from '$lib/server/auth';
+import { getPool } from '$lib/server/db';
 import type { RequestHandler } from './$types';
+
+const pool = getPool();
 
 // Define upload directories based on environment
 // User uploads should be persistent, not in static/build

@@ -1,6 +1,8 @@
 import { json, error } from '@sveltejs/kit';
-import { pool } from '$lib/server/auth';
+import { getPool } from '$lib/server/db';
 import type { RequestHandler } from './$types';
+
+const pool = getPool();
 
 export const POST: RequestHandler = async ({ request, locals }) => {
   // Check if user is authenticated

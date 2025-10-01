@@ -1,17 +1,10 @@
 import { Lucia } from "lucia";
-import mysql from 'mysql2/promise';
 import { dev } from "$app/environment";
-import { DATABASE_CONFIG } from '../config.js';
+import { getPool } from './db.js';
+import type mysql from 'mysql2/promise';
 
-// MySQL connection pool
-const pool = mysql.createPool({
-  host: DATABASE_CONFIG.mysql.host,
-  port: DATABASE_CONFIG.mysql.port,
-  user: DATABASE_CONFIG.mysql.user,
-  password: DATABASE_CONFIG.mysql.password,
-  database: DATABASE_CONFIG.mysql.database,
-  connectionLimit: DATABASE_CONFIG.mysql.connectionLimit,
-});
+// Use the centralized connection pool
+const pool = getPool();
 
 // Custom MySQL adapter for Lucia
 class MySQLAdapter {
@@ -202,8 +195,7 @@ export const lucia = new Lucia(adapter, {
   }
 });
 
-// Export the pool for direct queries if needed
-export { pool };
+// Note: pool is imported from db.js - use getPool() from db.js for direct queries
 
 // Type declarations for Lucia
 declare module "lucia" {
