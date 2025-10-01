@@ -4,13 +4,21 @@ import fs from 'fs';
 import path from 'path';
 import mysql from 'mysql2/promise';
 import { fileURLToPath } from 'url';
-import { DATABASE_CONFIG } from './src/lib/config.js';
+import dotenv from 'dotenv';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
-// Database configuration - uses centralized config
+// Load environment variables from .env file
+dotenv.config();
+
+// Database configuration - reads from environment variables
 const dbConfig = {
-    ...DATABASE_CONFIG.mysql,
+    host: process.env.MYSQL_HOST || 'localhost',
+    ...(process.env.MYSQL_PORT && { port: parseInt(process.env.MYSQL_PORT) }),
+    user: process.env.MYSQL_USER,
+    password: process.env.MYSQL_PASSWORD,
+    database: process.env.MYSQL_DATABASE,
+    connectionLimit: parseInt(process.env.MYSQL_CONNECTION_LIMIT || '10'),
     multipleStatements: true
 };
 
