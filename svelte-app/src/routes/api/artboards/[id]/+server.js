@@ -24,11 +24,20 @@ export async function GET({ params }) {
       [id]
     );
 
-    // Get swatches for this artboard
+    // Get swatches for this artboard (via images)
     const [swatches] = await connection.execute(
-      'SELECT * FROM swatches WHERE artboard_id = ? ORDER BY created_at',
+      `SELECT s.* FROM swatches s
+       INNER JOIN images i ON s.image_id = i.id
+       WHERE i.artboard_id = ?
+       ORDER BY s.created_at`,
       [id]
     );
+
+    console.log('Artboard API: Loaded swatches:', swatches.length);
+    if (swatches.length > 0) {
+      console.log('Artboard API: First swatch:', swatches[0]);
+      console.log('Artboard API: First swatch keys:', Object.keys(swatches[0]));
+    }
 
     await connection.end();
 

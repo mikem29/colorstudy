@@ -5,8 +5,13 @@ export async function POST({ request }) {
   try {
     const { swatch_id, line_color } = await request.json();
 
+    console.log('update-line-color API: received swatch_id:', swatch_id, 'line_color:', line_color);
+
     if (!swatch_id || !line_color) {
-      return json({ status: 'error', message: 'Missing required fields.' }, { status: 400 });
+      return json({
+        status: 'error',
+        message: `Missing required fields. swatch_id: ${swatch_id}, line_color: ${line_color}`
+      }, { status: 400 });
     }
 
     // Validate hex color format

@@ -161,6 +161,7 @@
 
 
   onMount(() => {
+    console.log('ColorPicker: onMount - existingSwatches:', existingSwatches);
     // Calculate artboard size immediately from props
     calculateArtboardSize();
 
@@ -1460,11 +1461,17 @@
 
     // If we have existing swatches, load them first
     if (existingSwatches && existingSwatches.length > 0) {
+      console.log('createPlaceholders: Loading existing swatches', existingSwatches);
+      console.log('createPlaceholders: First swatch raw:', existingSwatches[0]);
+      console.log('createPlaceholders: First swatch id:', existingSwatches[0].id);
       // Start with existing swatches
-      swatchPlaceholders = existingSwatches.map(swatch => ({
-        filled: true,
-        data: {
-          hexColor: swatch.hex_color,
+      swatchPlaceholders = existingSwatches.map(swatch => {
+        console.log('createPlaceholders: Mapping swatch id:', swatch.id);
+        return {
+          filled: true,
+          data: {
+            id: swatch.id,
+            hexColor: swatch.hex_color,
           red: swatch.red,
           green: swatch.green,
           blue: swatch.blue,
@@ -1475,9 +1482,14 @@
           sampleX: parseFloat(swatch.sample_x) || 0,
           sampleY: parseFloat(swatch.sample_y) || 0,
           sampleSize: swatch.sample_size || 1,
-          imageId: swatch.image_id
+          imageId: swatch.image_id,
+          lineColor: swatch.line_color || '#000000'
         }
-      }));
+      };
+      });
+
+      console.log('createPlaceholders: swatchPlaceholders after mapping:', swatchPlaceholders);
+      console.log('createPlaceholders: First placeholder data.id:', swatchPlaceholders[0]?.data?.id);
 
       // Set the index to the next available slot
       swatchIndex = existingSwatches.length;
@@ -1536,6 +1548,13 @@
   }
 
   function handleNodeClick(swatch, index) {
+    console.log('handleNodeClick: FULL swatch object:', swatch);
+    console.log('handleNodeClick: swatch.filled:', swatch.filled);
+    console.log('handleNodeClick: swatch.data:', swatch.data);
+    console.log('handleNodeClick: swatch.data.id:', swatch.data.id);
+    console.log('handleNodeClick: swatchPlaceholders[index]:', swatchPlaceholders[index]);
+    console.log('handleNodeClick: swatchPlaceholders[index].data.id:', swatchPlaceholders[index].data.id);
+
     // Show the color picker menu at the node position
     showLineColorPicker = true;
     lineColorPickerSwatch = swatch;
@@ -1553,7 +1572,12 @@
   }
 
   async function updateLineColor(color) {
-    if (!lineColorPickerSwatch || lineColorPickerIndex < 0) return;
+    if (!lineColorPickerSwatch || lineColorPickerIndex < 0) {
+      console.error('updateLineColor: Missing swatch or index', lineColorPickerSwatch, lineColorPickerIndex);
+      return;
+    }
+
+    console.log('updateLineColor: Updating swatch', lineColorPickerSwatch.data.id, 'to color', color);
 
     try {
       // Update in database
@@ -1567,6 +1591,7 @@
       });
 
       const result = await response.json();
+      console.log('updateLineColor: API response', result);
 
       if (result.status === 'success') {
         // Update local state - trigger reactivity by creating new array
@@ -1579,11 +1604,14 @@
           }
         };
         swatchPlaceholders = updatedPlaceholders;
+        console.log('updateLineColor: Updated local state', swatchPlaceholders[lineColorPickerIndex]);
 
         // Close the picker
         showLineColorPicker = false;
         lineColorPickerSwatch = null;
         lineColorPickerIndex = -1;
+      } else {
+        console.error('updateLineColor: API returned error', result);
       }
     } catch (error) {
       console.error('Error updating line color:', error);
@@ -1682,7 +1710,12 @@
 
       const result = await response.json();
 
-      if (result.status !== 'success') {
+      if (result.status === 'success' && result.inserted_ids && result.inserted_ids.length > 0) {
+        // Update the swatch with the returned ID
+        const insertedId = result.inserted_ids[0];
+        swatchPlaceholders[swatchIndex - 1].data.id = insertedId;
+        console.log('Swatch saved with ID:', insertedId);
+      } else if (result.status !== 'success') {
         console.error('Failed to save swatch:', result.message);
       }
     } catch (error) {

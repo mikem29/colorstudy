@@ -25,6 +25,8 @@ export const POST: RequestHandler = async ({ request, locals }) => {
       const stmt = `INSERT INTO swatches (hex_color, red, green, blue, cmyk, description, image_id, pos_x, pos_y, sample_x, sample_y, sample_size, line_color, user_id)
                     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`;
 
+      const insertedIds = [];
+
       for (const swatch of swatchData) {
         if (
           !swatch.hex_color ||
@@ -36,7 +38,7 @@ export const POST: RequestHandler = async ({ request, locals }) => {
           return json({ status: 'error', message: 'Invalid input data in one or more swatches.' }, { status: 400 });
         }
 
-        await connection.execute(stmt, [
+        const [result] = await connection.execute(stmt, [
           swatch.hex_color,
           swatch.red,
           swatch.green,
@@ -52,11 +54,13 @@ export const POST: RequestHandler = async ({ request, locals }) => {
           swatch.line_color || '#000000',
           locals.user.id // Associate with logged-in user
         ]);
+
+        insertedIds.push((result as any).insertId);
       }
 
       await connection.commit();
 
-      return json({ status: 'success', message: 'Swatches saved successfully.' });
+      return json({ status: 'success', message: 'Swatches saved successfully.', inserted_ids: insertedIds });
     } catch (dbError) {
       await connection.rollback();
       console.error('Database error:', dbError);
