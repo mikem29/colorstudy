@@ -8,13 +8,25 @@
       "completed_date": "2025-10-01T00:00:00Z",
       "status": "completed",
       "related_files": []
+    },
+    {
+      "category": "bug",
+      "description": "Artboard size defaults to 8.5x11 instead of using actual settings - Fixed by initializing artboardWidthInches and artboardHeightInches from props and calling calculateArtboardSize() in onMount()",
+      "priority": "critical",
+      "created_date": "2025-10-01T00:00:00Z",
+      "completed_date": "2025-10-01T00:00:00Z",
+      "status": "completed",
+      "related_files": [
+        "/Volumes/X9 Pro/Projects/MicroSass/colorstudy/svelte-app/src/lib/ColorPicker.svelte"
+      ],
+      "resolution_details": "Changed initialization to use props (artboardWidth/artboardHeight) instead of hardcoded 8.5x11 values, and ensured calculateArtboardSize() is called immediately in onMount()"
     }
   ],
   "requires_examination": [
     {
       "category": "bug",
-      "description": "Average point sampling does not work",
-      "priority": "high",
+      "description": "Homepage (/) is only available to logged-in users, which is backwards. The root route should be accessible to everyone without redirecting to login/signup. This is a critical problem because it prevents anonymous users from viewing the homepage content.",
+      "priority": "critical",
       "created_date": "2025-10-01T00:00:00Z",
       "last_updated": "2025-10-01T00:00:00Z",
       "status": "pending",
@@ -22,8 +34,8 @@
     },
     {
       "category": "bug",
-      "description": "When creating artboards, the size always defaults to 8.5x11 instead of using the actual settings from the 'add artboard settings'. The size saves correctly in the database but the artboard visual is always 8.5x11.",
-      "priority": "critical",
+      "description": "Average point sampling does not work",
+      "priority": "high",
       "created_date": "2025-10-01T00:00:00Z",
       "last_updated": "2025-10-01T00:00:00Z",
       "status": "pending",
