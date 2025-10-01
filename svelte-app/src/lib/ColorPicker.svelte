@@ -6,6 +6,7 @@
     imageSrc = '/dunes.png',
     imageId = null,
     artboardId,
+    artboardName = 'Untitled',
     artboardWidth,
     artboardHeight,
     existingImages = [],
@@ -2379,9 +2380,12 @@
     onclick={isPlacingSwatch ? handleSwatchPlacement : currentTool === 'place' ? handleImagePlacement : undefined}
   >
 
-    <!-- Artboard Label -->
-    <div class="absolute -top-8 left-0 text-sm text-gray-600 font-medium z-50 whitespace-nowrap">
-      {artboardWidthInches}" × {artboardHeightInches}" Artboard
+    <!-- Artboard Labels -->
+    <div class="absolute left-0 text-sm text-gray-900 font-bold z-50 whitespace-nowrap" style="top: -5px; transform: translateY(-100%);">
+      {artboardName}
+    </div>
+    <div class="absolute right-0 text-sm text-gray-600 font-medium z-50 whitespace-nowrap" style="top: -5px; transform: translateY(-100%);">
+      {parseFloat(artboardWidthInches)} × {parseFloat(artboardHeightInches)}
     </div>
 
     <!-- Rulers (optional) -->
