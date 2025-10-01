@@ -22,8 +22,8 @@ export const POST: RequestHandler = async ({ request, locals }) => {
     try {
       await connection.beginTransaction();
 
-      const stmt = `INSERT INTO swatches (hex_color, red, green, blue, cmyk, description, image_id, pos_x, pos_y, sample_x, sample_y, sample_size, user_id)
-                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`;
+      const stmt = `INSERT INTO swatches (hex_color, red, green, blue, cmyk, description, image_id, pos_x, pos_y, sample_x, sample_y, sample_size, line_color, user_id)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`;
 
       for (const swatch of swatchData) {
         if (
@@ -49,6 +49,7 @@ export const POST: RequestHandler = async ({ request, locals }) => {
           swatch.sample_x || 0,
           swatch.sample_y || 0,
           swatch.sample_size || 1,
+          swatch.line_color || '#000000',
           locals.user.id // Associate with logged-in user
         ]);
       }

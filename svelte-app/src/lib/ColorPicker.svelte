@@ -90,6 +90,21 @@
   // Swatch selection state
   let selectedSwatchIndex = $state(-1);
 
+  // Line color picker state
+  let showLineColorPicker = $state(false);
+  let lineColorPickerSwatch = $state(null);
+  let lineColorPickerIndex = $state(-1);
+  let lineColorPickerPosition = $state({ x: 0, y: 0 });
+
+  // Preset colors for line color picker (25 basic colors)
+  const presetColors = [
+    '#000000', '#FFFFFF', '#FF0000', '#00FF00', '#0000FF',
+    '#FFFF00', '#FF00FF', '#00FFFF', '#FFA500', '#800080',
+    '#008000', '#000080', '#FFC0CB', '#A52A2A', '#808080',
+    '#FFD700', '#4B0082', '#FF6347', '#40E0D0', '#EE82EE',
+    '#F0E68C', '#7FFF00', '#DC143C', '#00CED1', '#9932CC'
+  ];
+
   // Image manipulation state
   let isDraggingImage = $state(false);
   let isResizingImage = $state(false);
@@ -1520,6 +1535,61 @@
     pendingSwatchData = null;
   }
 
+  function handleNodeClick(swatch, index) {
+    // Show the color picker menu at the node position
+    showLineColorPicker = true;
+    lineColorPickerSwatch = swatch;
+    lineColorPickerIndex = index;
+
+    // Calculate position for the color picker popup
+    const swatchPos = {
+      x: swatch.data.posX !== undefined && swatch.data.posX !== null ? swatch.data.posX : getSwatchPosition(index).x,
+      y: swatch.data.posY !== undefined && swatch.data.posY !== null ? swatch.data.posY : getSwatchPosition(index).y
+    };
+    const swatchCenterX = swatchPos.x + (2.5 * 96) / 2;
+    const swatchCenterY = swatchPos.y + (1.5 * 96) / 2;
+
+    lineColorPickerPosition = { x: swatchCenterX + 20, y: swatchCenterY };
+  }
+
+  async function updateLineColor(color) {
+    if (!lineColorPickerSwatch || lineColorPickerIndex < 0) return;
+
+    try {
+      // Update in database
+      const response = await fetch('/api/swatches/update-line-color', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          swatch_id: lineColorPickerSwatch.data.id,
+          line_color: color
+        })
+      });
+
+      const result = await response.json();
+
+      if (result.status === 'success') {
+        // Update local state - trigger reactivity by creating new array
+        const updatedPlaceholders = [...swatchPlaceholders];
+        updatedPlaceholders[lineColorPickerIndex] = {
+          ...updatedPlaceholders[lineColorPickerIndex],
+          data: {
+            ...updatedPlaceholders[lineColorPickerIndex].data,
+            lineColor: color
+          }
+        };
+        swatchPlaceholders = updatedPlaceholders;
+
+        // Close the picker
+        showLineColorPicker = false;
+        lineColorPickerSwatch = null;
+        lineColorPickerIndex = -1;
+      }
+    } catch (error) {
+      console.error('Error updating line color:', error);
+    }
+  }
+
   async function handleSubmit() {
     if (pendingClickData) {
       // Find next available grid position
@@ -2513,6 +2583,8 @@
           {@const swatchCenterX = swatchPos.x + (2.5 * 96) / 2}
           {@const swatchCenterY = swatchPos.y + (1.5 * 96) / 2}
           {@const imgCanvas = imageCanvases.get(swatch.data.imageId)}
+          {@const swatchWidth = 2.5 * 96}
+          {@const swatchHeight = 1.5 * 96}
           {@const sampleSize = swatch.data.sampleSize || 1}
           {@const _ = canvasLoadState} <!-- Force reactivity when canvases load -->
 
@@ -2524,6 +2596,22 @@
             {@const sampleX = (!isNaN(calculatedX) && isFinite(calculatedX)) ? Math.round(calculatedX) : sourceImage.x}
             {@const sampleY = (!isNaN(calculatedY) && isFinite(calculatedY)) ? Math.round(calculatedY) : sourceImage.y}
             {@const sampleRadius = Math.max(4, Math.round((sampleSize * scaleX) / 2))}
+
+            <!-- Calculate edge point where line intersects swatch border -->
+            {@const dx = sampleX - swatchCenterX}
+            {@const dy = sampleY - swatchCenterY}
+            {@const angle = Math.atan2(dy, dx)}
+            {@const halfWidth = swatchWidth / 2}
+            {@const halfHeight = swatchHeight / 2}
+
+            <!-- Find intersection point on swatch rectangle edge -->
+            {@const tanAngle = Math.tan(angle)}
+            {@const edgeX = Math.abs(tanAngle) <= halfHeight / halfWidth
+              ? swatchCenterX + Math.sign(dx) * halfWidth
+              : swatchCenterX + (halfHeight / Math.abs(tanAngle)) * Math.sign(dx)}
+            {@const edgeY = Math.abs(tanAngle) <= halfHeight / halfWidth
+              ? swatchCenterY + tanAngle * Math.sign(dx) * halfWidth
+              : swatchCenterY + Math.sign(dy) * halfHeight}
 
             <!-- Connection Line -->
             <svg
@@ -2538,21 +2626,42 @@
             >
               <defs>
                 <marker id="arrowhead-{i}" markerWidth="6" markerHeight="4" refX="5" refY="2" orient="auto">
-                  <polygon points="0 0, 6 2, 0 4" fill="{swatch.data.hexColor}" stroke="#333" stroke-width="0.5"/>
+                  <polygon points="0 0, 6 2, 0 4" fill="{swatch.data.lineColor || swatch.data.hexColor}" stroke="#333" stroke-width="0.5"/>
                 </marker>
               </defs>
               <line
-                x1="{swatchCenterX}"
-                y1="{swatchCenterY}"
+                x1="{edgeX}"
+                y1="{edgeY}"
                 x2="{sampleX}"
                 y2="{sampleY}"
-                stroke="{swatch.data.hexColor}"
+                stroke="{swatch.data.lineColor || swatch.data.hexColor}"
                 stroke-width="2"
                 stroke-dasharray="3,3"
                 opacity="0.7"
                 marker-end="url(#arrowhead-{i})"
               />
             </svg>
+
+            <!-- Square Node Connector at Swatch Edge -->
+            <div
+              class="absolute cursor-pointer hover:scale-125 transition-transform"
+              style="
+                left: {edgeX - 6}px;
+                top: {edgeY - 6}px;
+                width: 12px;
+                height: 12px;
+                background-color: {swatch.data.lineColor || swatch.data.hexColor};
+                border: 2px solid white;
+                box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+                z-index: 1000;
+              "
+              onclick={(e) => {
+                e.stopPropagation();
+                handleNodeClick(swatch, i);
+              }}
+              role="button"
+              tabindex="0"
+            ></div>
 
             <!-- Sample Location Circle (only for multi-pixel samples) -->
             {#if sampleSize && sampleSize > 1}
@@ -2676,6 +2785,65 @@
           </button>
         </form>
       </div>
+    </div>
+  </div>
+{/if}
+
+<!-- Line Color Picker Menu -->
+{#if showLineColorPicker}
+  <div
+    class="fixed z-[100]"
+    style="
+      left: {lineColorPickerPosition.x}px;
+      top: {lineColorPickerPosition.y}px;
+    "
+  >
+    <div class="bg-white rounded-lg shadow-xl border-2 border-gray-300 p-3 w-64">
+      <!-- Close button -->
+      <button
+        onclick={() => {
+          showLineColorPicker = false;
+          lineColorPickerSwatch = null;
+          lineColorPickerIndex = -1;
+        }}
+        class="absolute -top-2 -right-2 bg-red-500 text-white rounded-full w-6 h-6 flex items-center justify-center hover:bg-red-600 text-xs"
+      >
+        ×
+      </button>
+
+      <div class="text-xs font-medium text-gray-700 mb-2">Line Color</div>
+
+      <!-- Preset Colors -->
+      <div class="mb-3">
+        <div class="text-xs text-gray-500 mb-1">Presets</div>
+        <div class="grid grid-cols-5 gap-1">
+          {#each presetColors as color}
+            <button
+              onclick={() => updateLineColor(color)}
+              class="w-10 h-10 rounded border-2 border-gray-300 hover:border-blue-500 transition-colors cursor-pointer"
+              style="background-color: {color};"
+              title={color}
+            ></button>
+          {/each}
+        </div>
+      </div>
+
+      <!-- Artboard Swatches -->
+      {#if swatchPlaceholders.filter(s => s.filled).length > 0}
+        <div>
+          <div class="text-xs text-gray-500 mb-1">Artboard Colors</div>
+          <div class="grid grid-cols-5 gap-1 max-h-32 overflow-y-auto">
+            {#each swatchPlaceholders.filter(s => s.filled) as swatch}
+              <button
+                onclick={() => updateLineColor(swatch.data.hexColor)}
+                class="w-10 h-10 rounded border-2 border-gray-300 hover:border-blue-500 transition-colors cursor-pointer"
+                style="background-color: {swatch.data.hexColor};"
+                title={swatch.data.hexColor}
+              ></button>
+            {/each}
+          </div>
+        </div>
+      {/if}
     </div>
   </div>
 {/if}
