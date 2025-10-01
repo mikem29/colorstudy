@@ -147,7 +147,7 @@
 </script>
 
 <svelte:head>
-  <title>ColorStudy - Color Palette Manager</title>
+  <title>HueMixy - Color Palette Manager</title>
 </svelte:head>
 
 <div class="min-h-screen bg-gradient-to-br from-blue-50 via-white to-purple-50">
@@ -161,7 +161,7 @@
           </div>
           <div>
             <h1 class="text-2xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
-              ColorStudy
+              HueMixy
             </h1>
           </div>
         </div>

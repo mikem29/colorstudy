@@ -3,7 +3,7 @@
 </script>
 
 <svelte:head>
-  <title>Login - ColorStudy</title>
+  <title>Login - HueMixy</title>
 </svelte:head>
 
 <div class="relative min-h-screen bg-gradient-to-br from-blue-50 via-white to-purple-50 pt-16 pb-12 px-4 sm:px-6 lg:px-8 overflow-hidden">

@@ -14,7 +14,7 @@
         <div class="flex justify-between h-16">
           <div class="flex items-center">
             <a href="/" class="text-xl font-bold text-gray-900">
-              ColorStudy
+              HueMixy
             </a>
           </div>
 
