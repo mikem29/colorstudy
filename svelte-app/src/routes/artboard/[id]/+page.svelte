@@ -128,6 +128,7 @@
     <div class="flex-1">
       <ColorPicker
         {artboardId}
+        artboardName={artboard.name}
         artboardWidth={artboard.width_inches}
         artboardHeight={artboard.height_inches}
         existingImages={images}
