@@ -13,7 +13,8 @@
       "Read(//Volumes/**)",
       "Bash(docker exec:*)",
       "Bash(npm install:*)",
-      "Bash(./deploy.sh)"
+      "Bash(./deploy.sh)",
+      "Bash(pkill:*)"
     ],
     "deny": [],
     "ask": []

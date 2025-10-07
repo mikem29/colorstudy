@@ -17,7 +17,8 @@
     samplingSize: propSamplingSize = 1,
     colorFormat: propColorFormat = 'RGB',
     onSwatchCreated,
-    onImageUpload
+    onImageUpload,
+    onSwatchClick
   } = $props();
 
   // Multiple images support
@@ -94,6 +95,17 @@
   let showLineColorPicker = $state(false);
   let lineColorPickerSwatch = $state(null);
   let lineColorPickerIndex = $state(-1);
+
+  // Notify parent when a swatch is selected
+  $effect(() => {
+    if (selectedSwatchIndex >= 0 && swatchPlaceholders[selectedSwatchIndex]?.filled && onSwatchClick) {
+      const swatch = swatchPlaceholders[selectedSwatchIndex];
+      onSwatchClick(swatch.data, selectedSwatchIndex);
+    } else if (selectedSwatchIndex === -1 && onSwatchClick) {
+      // Deselected
+      onSwatchClick(null, -1);
+    }
+  });
   let lineColorPickerPosition = $state({ x: 0, y: 0 });
 
   // Preset colors for line color picker (25 colors with greys)

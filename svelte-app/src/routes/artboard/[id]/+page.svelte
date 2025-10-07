@@ -14,6 +14,10 @@
   let showColorFormatOnSwatch = true;
   let samplingSize = 1;
   let colorFormat = 'RGB';
+  let selectedSwatch = null;
+  let selectedSwatchIndex = -1;
+  let swatchLabelInput = '';
+  let saveTimeout = null;
 
   $: artboardId = $page.params.id;
 
@@ -111,6 +115,56 @@
   function handleSwatchCreated() {
     loadArtboard(); // Reload to get updated swatches
   }
+
+  function handleSwatchClick(swatchData, index) {
+    selectedSwatch = swatchData;
+    selectedSwatchIndex = index;
+    swatchLabelInput = swatchData?.description || '';
+  }
+
+  function handleLabelInput() {
+    // Clear existing timeout
+    if (saveTimeout) {
+      clearTimeout(saveTimeout);
+    }
+
+    // Debounce: wait 500ms after user stops typing
+    saveTimeout = setTimeout(() => {
+      updateSwatchLabel();
+    }, 500);
+  }
+
+  async function updateSwatchLabel() {
+    if (!selectedSwatch || !selectedSwatch.id) return;
+
+    // Optimistic update: update local state immediately
+    selectedSwatch.description = swatchLabelInput;
+
+    // Update the swatches array
+    swatches = swatches.map(s =>
+      s.id === selectedSwatch.id ? { ...s, description: swatchLabelInput } : s
+    );
+
+    try {
+      const response = await fetch(`/api/swatches/${selectedSwatch.id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          description: swatchLabelInput
+        })
+      });
+
+      const result = await response.json();
+      if (result.status !== 'success') {
+        // If failed, reload to get correct state
+        await loadArtboard();
+      }
+    } catch (error) {
+      console.error('Error updating swatch label:', error);
+      // Reload on error to restore correct state
+      await loadArtboard();
+    }
+  }
 </script>
 
 {#if loading}
@@ -140,6 +194,7 @@
         {colorFormat}
         onSwatchCreated={handleSwatchCreated}
         onImageUpload={handleFileUpload}
+        onSwatchClick={handleSwatchClick}
       />
     </div>
 
@@ -188,7 +243,7 @@
             <input
               type="checkbox"
               bind:checked={showConnectionLines}
-              on:change={updatePreferences}
+              onchange={updatePreferences}
               class="w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 rounded focus:ring-blue-500 focus:ring-2"
             />
             <span class="text-sm text-gray-700">Show connection lines</span>
@@ -197,13 +252,55 @@
             <input
               type="checkbox"
               bind:checked={showColorFormatOnSwatch}
-              on:change={updatePreferences}
+              onchange={updatePreferences}
               class="w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 rounded focus:ring-blue-500 focus:ring-2"
             />
             <span class="text-sm text-gray-700">Show color values on swatches</span>
           </label>
           <p class="text-xs text-gray-500">Display color format values directly on the swatches</p>
         </div>
+
+        <!-- Selected Swatch Editor -->
+        {#if selectedSwatch}
+          <div class="space-y-3 border-t border-gray-200 pt-6">
+            <label class="block text-xs font-medium text-gray-700 uppercase tracking-wide">
+              <i class="fas fa-edit mr-2"></i>
+              Selected Swatch
+            </label>
+
+            <!-- Color Preview -->
+            <div class="flex items-center space-x-3">
+              <div
+                class="w-12 h-12 rounded-lg border-2 border-gray-300 shadow-sm"
+                style="background-color: {selectedSwatch.hexColor};"
+              ></div>
+              <div class="flex-1">
+                <p class="text-xs font-mono text-gray-600">
+                  {colorFormat === 'RGB'
+                    ? `RGB(${selectedSwatch.red}, ${selectedSwatch.green}, ${selectedSwatch.blue})`
+                    : selectedSwatch.cmyk
+                  }
+                </p>
+                <p class="text-xs text-gray-500">{selectedSwatch.hexColor}</p>
+              </div>
+            </div>
+
+            <!-- Label Input -->
+            <div>
+              <label for="swatchLabel" class="block text-xs font-medium text-gray-600 mb-1">
+                Label
+              </label>
+              <input
+                id="swatchLabel"
+                type="text"
+                bind:value={swatchLabelInput}
+                oninput={handleLabelInput}
+                placeholder="Enter swatch label..."
+                class="w-full px-3 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+              />
+            </div>
+          </div>
+        {/if}
       </div>
     </div>
   </div>
