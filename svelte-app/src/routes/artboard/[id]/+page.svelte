@@ -2,6 +2,7 @@
   import { onMount } from 'svelte';
   import ColorPicker from '$lib/ColorPicker.svelte';
   import { page } from '$app/stores';
+  import html2canvas from 'html2canvas';
 
   export let data;
 
@@ -18,6 +19,7 @@
   let selectedSwatchIndex = -1;
   let swatchLabelInput = '';
   let saveTimeout = null;
+  let generatingPDF = false;
 
   $: artboardId = $page.params.id;
 
@@ -165,6 +167,58 @@
       await loadArtboard();
     }
   }
+
+  async function generatePDF() {
+    if (generatingPDF) return;
+
+    generatingPDF = true;
+    try {
+      // Find the main content area (the artboard canvas)
+      const artboardElement = document.querySelector('.flex-1.overflow-auto');
+
+      if (!artboardElement) {
+        console.error('Artboard element not found');
+        alert('Unable to find artboard for PDF generation.');
+        return;
+      }
+
+      // Capture the artboard as canvas
+      const canvas = await html2canvas(artboardElement, {
+        scale: 2, // Higher quality
+        useCORS: true,
+        allowTaint: true,
+        backgroundColor: '#ffffff'
+      });
+
+      // Convert canvas to base64 image data
+      const imageData = canvas.toDataURL('image/png');
+
+      // Send to server for PDF generation
+      const response = await fetch(`/api/artboards/${artboardId}/pdf`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          imageData,
+          width: artboard.width_inches,
+          height: artboard.height_inches
+        })
+      });
+
+      const result = await response.json();
+
+      if (result.status === 'success') {
+        // Trigger download by opening the URL
+        window.location.href = result.url;
+      } else {
+        alert('Failed to generate PDF: ' + (result.message || 'Unknown error'));
+      }
+    } catch (error) {
+      console.error('Error generating PDF:', error);
+      alert('Failed to generate PDF. Please try again.');
+    } finally {
+      generatingPDF = false;
+    }
+  }
 </script>
 
 {#if loading}
@@ -202,6 +256,22 @@
     <div class="w-80 bg-gray-50 border-l border-gray-200 flex flex-col h-screen z-50 relative shrink-0">
       <!-- Sidebar Content -->
       <div class="flex-1 overflow-y-auto p-4 space-y-6">
+        <!-- Print Button -->
+        <div class="flex justify-end">
+          <button
+            onclick={generatePDF}
+            disabled={generatingPDF}
+            class="bg-blue-600 hover:bg-blue-700 text-white rounded-lg p-3 shadow-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+            title="Print Artboard to PDF"
+          >
+            {#if generatingPDF}
+              <i class="fas fa-spinner fa-spin text-2xl"></i>
+            {:else}
+              <i class="fas fa-print text-2xl"></i>
+            {/if}
+          </button>
+        </div>
+
         <!-- Sample Size Control -->
         <div class="space-y-3">
           <label class="block text-xs font-medium text-gray-700 uppercase tracking-wide">
