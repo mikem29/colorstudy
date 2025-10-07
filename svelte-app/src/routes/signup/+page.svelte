@@ -50,17 +50,25 @@
         />
       </div>
 
+      <div>
+        <label for="coupon" class="block text-sm font-semibold text-gray-700 mb-1">
+          Coupon Code <span class="text-gray-400 font-normal">(Optional)</span>
+        </label>
+        <input
+          id="coupon"
+          name="coupon"
+          type="text"
+          class="appearance-none block w-full px-4 py-3 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+          placeholder="Enter promo code"
+          value={form?.coupon ?? ''}
+        />
+      </div>
+
       {#if form?.error}
         <div class="text-red-600 text-sm text-center">
           {form.error}
         </div>
       {/if}
-
-      <ul class="text-sm text-gray-600 space-y-2">
-        <li class="flex items-center gap-2"><i class="fas fa-check text-emerald-600"></i> Unlimited color sampling</li>
-        <li class="flex items-center gap-2"><i class="fas fa-check text-emerald-600"></i> Printable, inch-accurate artboards</li>
-        <li class="flex items-center gap-2"><i class="fas fa-check text-emerald-600"></i> Visual source lines for every swatch</li>
-      </ul>
 
       <button
         type="submit"

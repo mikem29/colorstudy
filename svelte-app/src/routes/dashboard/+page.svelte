@@ -12,6 +12,8 @@
   let artboardToDelete = $state(null);
   let editingArtboardId = $state(null);
   let editingArtboardName = $state('');
+  let subscriptionTier = $state('free');
+  let isAtLimit = $state(false);
 
   async function loadArtboards() {
     try {
@@ -19,6 +21,8 @@
       const data = await response.json();
       if (data.status === 'success') {
         artboards = data.data;
+        subscriptionTier = data.subscription_tier || 'free';
+        isAtLimit = subscriptionTier === 'free' && artboards.length >= 5;
       }
     } catch (error) {
       console.error('Error loading artboards:', error);
@@ -129,12 +133,9 @@
         artboardName = '';
         await loadArtboards();
         goto(`/artboard/${data.artboard_id}`);
-      } else {
-        alert('Failed to create artboard: ' + data.message);
       }
     } catch (error) {
       console.error('Error creating artboard:', error);
-      alert('Failed to create artboard');
     } finally {
       creating = false;
     }
@@ -168,13 +169,25 @@
 
         <!-- Logo/Brand (top right) -->
         <div class="flex items-center space-x-4">
-          <button
-            onclick={() => showCreateModal = true}
-            class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors duration-200 flex items-center space-x-2"
-          >
-            <i class="fas fa-plus"></i>
-            <span>New Artboard</span>
-          </button>
+          {#if isAtLimit}
+            <div class="flex items-center space-x-3 px-4 py-2 bg-purple-50 border border-purple-200 rounded-lg">
+              <div class="text-sm">
+                <span class="text-purple-900 font-medium">Free tier limit reached</span>
+                <span class="text-purple-600 mx-2">•</span>
+                <a href="/upgrade" class="text-purple-600 hover:text-purple-700 font-medium">
+                  <i class="fas fa-crown mr-1"></i>Upgrade to Pro
+                </a>
+              </div>
+            </div>
+          {:else}
+            <button
+              onclick={() => showCreateModal = true}
+              class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors duration-200 flex items-center space-x-2"
+            >
+              <i class="fas fa-plus"></i>
+              <span>New Artboard</span>
+            </button>
+          {/if}
           <a
             href="/profile"
             class="p-2 text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-lg transition-colors duration-200"
@@ -189,6 +202,29 @@
 
   <!-- Main Content -->
   <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+    <!-- Free tier limit banner -->
+    {#if isAtLimit}
+      <div class="mb-6 bg-gradient-to-r from-purple-50 to-blue-50 border border-purple-200 rounded-xl p-6">
+        <div class="flex items-start justify-between">
+          <div class="flex items-start space-x-4">
+            <div class="bg-purple-100 p-3 rounded-lg">
+              <i class="fas fa-crown text-purple-600 text-2xl"></i>
+            </div>
+            <div>
+              <h3 class="text-lg font-semibold text-gray-900 mb-1">You've reached your artboard limit</h3>
+              <p class="text-gray-600 mb-3">You're currently on the Free plan with a limit of 5 artboards. Upgrade to Pro for unlimited artboards.</p>
+              <a
+                href="/upgrade"
+                class="inline-flex items-center px-4 py-2 bg-gradient-to-r from-blue-600 to-purple-600 text-white rounded-lg hover:from-blue-700 hover:to-purple-700 transition-colors duration-200 font-medium"
+              >
+                <i class="fas fa-arrow-up mr-2"></i>
+                Upgrade to Pro
+              </a>
+            </div>
+          </div>
+        </div>
+      </div>
+    {/if}
 
     <!-- Artboard Grid -->
     {#if artboards.length === 0}

@@ -9,7 +9,11 @@
       "Bash(npm install pino pino-pretty)",
       "Bash(mysql:*)",
       "Bash(docker-compose:*)",
-      "Bash(ssh:*)"
+      "Bash(ssh:*)",
+      "Read(//Volumes/**)",
+      "Bash(docker exec:*)",
+      "Bash(npm install:*)",
+      "Bash(./deploy.sh)"
     ],
     "deny": [],
     "ask": []

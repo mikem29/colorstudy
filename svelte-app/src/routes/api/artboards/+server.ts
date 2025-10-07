@@ -41,6 +41,13 @@ export const GET: RequestHandler = async ({ locals }) => {
         ORDER BY a.created_at DESC
       `, [locals.user.id, locals.user.id, locals.user.id]);
 
+      // Get user's subscription tier
+      const [userRows] = await connection.execute(
+        'SELECT subscription_tier FROM user WHERE id = ?',
+        [locals.user.id]
+      );
+      const user = (userRows as any[])[0];
+
       // Process rows to add thumbnail paths
       const processedRows = (rows as any[]).map(row => {
         let thumbnail_path = null;
@@ -56,7 +63,11 @@ export const GET: RequestHandler = async ({ locals }) => {
           thumbnail_path
         };
       });
-      return json({ status: 'success', data: processedRows });
+      return json({
+        status: 'success',
+        data: processedRows,
+        subscription_tier: user.subscription_tier
+      });
     } finally {
       connection.release();
     }
@@ -84,6 +95,30 @@ export const POST: RequestHandler = async ({ request, locals }) => {
     const connection = await pool.getConnection();
 
     try {
+      // Check user's subscription tier and artboard count
+      const [userRows] = await connection.execute(
+        'SELECT subscription_tier FROM user WHERE id = ?',
+        [locals.user.id]
+      );
+      const user = (userRows as any[])[0];
+
+      if (user.subscription_tier === 'free') {
+        // Count existing artboards
+        const [countRows] = await connection.execute(
+          'SELECT COUNT(*) as count FROM artboards WHERE user_id = ?',
+          [locals.user.id]
+        );
+        const artboardCount = (countRows as any[])[0].count;
+
+        if (artboardCount >= 5) {
+          return json({
+            status: 'error',
+            message: 'Free tier limited to 5 artboards. Upgrade to create more.',
+            limit_reached: true
+          }, { status: 403 });
+        }
+      }
+
       const [result] = await connection.execute(
         'INSERT INTO artboards (name, width_inches, height_inches, user_id) VALUES (?, ?, ?, ?)',
         [name, width_inches, height_inches, locals.user.id]

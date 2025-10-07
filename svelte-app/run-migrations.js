@@ -72,8 +72,8 @@ async function runMigrations() {
 
             console.log(`🔄 Running migration: ${filename}`);
 
-            // Execute the migration
-            await connection.execute(migrationSQL);
+            // Execute the migration (use query() to support multiple statements)
+            await connection.query(migrationSQL);
 
             // Record that migration was applied
             await connection.execute(
