@@ -157,8 +157,8 @@
                 </div>
               </td>
               <td class="px-6 py-4 whitespace-nowrap">
-                <span class="px-3 py-1 inline-flex text-xs leading-5 font-semibold rounded-full {user.subscription_tier === 'pro' ? 'bg-purple-100 text-purple-800' : 'bg-gray-100 text-gray-800'}">
-                  {user.subscription_tier || 'free'}
+                <span class="px-3 py-1 inline-flex text-xs leading-5 font-semibold rounded-full {user.subscription_tier === 'paid' ? 'bg-purple-100 text-purple-800' : 'bg-gray-100 text-gray-800'}">
+                  {user.subscription_tier === 'paid' ? 'pro' : 'free'}
                 </span>
               </td>
               <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
@@ -228,7 +228,7 @@
             class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
           >
             <option value="free">Free</option>
-            <option value="pro">Pro</option>
+            <option value="paid">Pro</option>
           </select>
         </div>
 
