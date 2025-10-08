@@ -173,27 +173,34 @@
 
     generatingPDF = true;
     try {
-      // Find the main content area (the artboard canvas)
-      const artboardElement = document.querySelector('.flex-1.overflow-auto');
+      // Find the artboard canvas element (the white rectangle with exact dimensions)
+      const artboardElement = document.querySelector('.artboard');
 
       if (!artboardElement) {
-        console.error('Artboard element not found');
+        console.error('Artboard canvas not found');
         alert('Unable to find artboard for PDF generation.');
         return;
       }
 
-      // Capture the artboard as canvas
+      // Wait for fonts to fully load before capturing
+      await document.fonts.ready;
+
+      // Small delay to ensure everything is rendered
+      await new Promise(resolve => setTimeout(resolve, 100));
+
+      // Capture the artboard canvas as image
       const canvas = await html2canvas(artboardElement, {
-        scale: 2, // Higher quality
+        scale: 2, // Higher quality (2x resolution)
         useCORS: true,
         allowTaint: true,
-        backgroundColor: '#ffffff'
+        backgroundColor: '#ffffff',
+        logging: false
       });
 
       // Convert canvas to base64 image data
       const imageData = canvas.toDataURL('image/png');
 
-      // Send to server for PDF generation
+      // Send to server for PDF generation and download
       const response = await fetch(`/api/artboards/${artboardId}/pdf`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -204,14 +211,35 @@
         })
       });
 
-      const result = await response.json();
-
-      if (result.status === 'success') {
-        // Trigger download by opening the URL
-        window.location.href = result.url;
-      } else {
-        alert('Failed to generate PDF: ' + (result.message || 'Unknown error'));
+      if (!response.ok) {
+        throw new Error('PDF generation failed');
       }
+
+      // Get the PDF blob from response
+      const blob = await response.blob();
+
+      // Get filename from Content-Disposition header if available
+      const contentDisposition = response.headers.get('Content-Disposition');
+      let filename = `${artboard.name || 'artboard'}_${artboardId}.pdf`;
+
+      if (contentDisposition) {
+        const filenameMatch = contentDisposition.match(/filename="(.+)"/);
+        if (filenameMatch) {
+          filename = filenameMatch[1];
+        }
+      }
+
+      // Create download link and trigger download
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+
+      // Cleanup
+      window.URL.revokeObjectURL(url);
+      document.body.removeChild(a);
     } catch (error) {
       console.error('Error generating PDF:', error);
       alert('Failed to generate PDF. Please try again.');
@@ -254,24 +282,22 @@
 
     <!-- Fixed Right Sidebar -->
     <div class="w-80 bg-gray-50 border-l border-gray-200 flex flex-col h-screen z-50 relative shrink-0">
-      <!-- Sidebar Content -->
-      <div class="flex-1 overflow-y-auto p-4 space-y-6">
-        <!-- Print Button -->
-        <div class="flex justify-end">
-          <button
-            onclick={generatePDF}
-            disabled={generatingPDF}
-            class="bg-blue-600 hover:bg-blue-700 text-white rounded-lg p-3 shadow-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed"
-            title="Print Artboard to PDF"
-          >
-            {#if generatingPDF}
-              <i class="fas fa-spinner fa-spin text-2xl"></i>
-            {:else}
-              <i class="fas fa-print text-2xl"></i>
-            {/if}
-          </button>
-        </div>
+      <!-- Print Button (positioned in top right corner) -->
+      <button
+        onclick={generatePDF}
+        disabled={generatingPDF}
+        class="absolute top-3 right-3 text-gray-500 hover:text-gray-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed z-10"
+        title="Print Artboard to PDF"
+      >
+        {#if generatingPDF}
+          <i class="fas fa-spinner fa-spin text-lg"></i>
+        {:else}
+          <i class="fas fa-print text-lg"></i>
+        {/if}
+      </button>
 
+      <!-- Sidebar Content -->
+      <div class="flex-1 overflow-y-auto p-4 pt-10 space-y-6">
         <!-- Sample Size Control -->
         <div class="space-y-3">
           <label class="block text-xs font-medium text-gray-700 uppercase tracking-wide">

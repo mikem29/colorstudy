@@ -315,6 +315,19 @@
         return;
       }
 
+      // Check if user is typing in a text input or textarea
+      const activeElement = document.activeElement;
+      const isTyping = activeElement && (
+        activeElement.tagName === 'INPUT' ||
+        activeElement.tagName === 'TEXTAREA' ||
+        activeElement.isContentEditable
+      );
+
+      // If typing, only allow Escape key (to blur input) and skip all other shortcuts
+      if (isTyping && event.key !== 'Escape') {
+        return;
+      }
+
       if (event.altKey) {
         isAltPressed = true;
       }
@@ -405,6 +418,19 @@
     const handleKeyUp = (event) => {
       // Skip all keyboard shortcuts when modal is open
       if (showModal) {
+        return;
+      }
+
+      // Check if user is typing in a text input or textarea
+      const activeElement = document.activeElement;
+      const isTyping = activeElement && (
+        activeElement.tagName === 'INPUT' ||
+        activeElement.tagName === 'TEXTAREA' ||
+        activeElement.isContentEditable
+      );
+
+      // If typing, skip all keyboard shortcuts
+      if (isTyping) {
         return;
       }
 
@@ -747,7 +773,7 @@
       newZoom = Math.max(0.1, zoomLevel - 0.2);
     } else {
       // Zoom in
-      newZoom = Math.min(5, zoomLevel + 0.2);
+      newZoom = Math.min(12, zoomLevel + 0.2);
     }
 
     // Get workspace element to find center
@@ -2515,7 +2541,7 @@
 
         <!-- Zoom Dropdown Menu -->
         {#if showZoomDropdown}
-          <div class="absolute left-full bottom-0 ml-2 bg-white rounded-lg shadow-xl border border-gray-200 py-2 z-50 min-w-24" onclick={(e) => e.stopPropagation()}>
+          <div class="absolute left-full bottom-0 ml-2 bg-white rounded-lg shadow-xl border border-gray-200 py-2 z-50 min-w-24 max-h-80 overflow-y-auto" onclick={(e) => e.stopPropagation()}>
             <button onclick={() => setZoomLevel(0.25)} class="w-full px-3 py-1 text-left text-sm hover:bg-gray-100 transition-colors">25%</button>
             <button onclick={() => setZoomLevel(0.5)} class="w-full px-3 py-1 text-left text-sm hover:bg-gray-100 transition-colors">50%</button>
             <button onclick={() => setZoomLevel(0.75)} class="w-full px-3 py-1 text-left text-sm hover:bg-gray-100 transition-colors">75%</button>
@@ -2524,7 +2550,12 @@
             <button onclick={() => setZoomLevel(1.5)} class="w-full px-3 py-1 text-left text-sm hover:bg-gray-100 transition-colors">150%</button>
             <button onclick={() => setZoomLevel(2)} class="w-full px-3 py-1 text-left text-sm hover:bg-gray-100 transition-colors">200%</button>
             <button onclick={() => setZoomLevel(3)} class="w-full px-3 py-1 text-left text-sm hover:bg-gray-100 transition-colors">300%</button>
+            <button onclick={() => setZoomLevel(4)} class="w-full px-3 py-1 text-left text-sm hover:bg-gray-100 transition-colors">400%</button>
             <button onclick={() => setZoomLevel(5)} class="w-full px-3 py-1 text-left text-sm hover:bg-gray-100 transition-colors">500%</button>
+            <button onclick={() => setZoomLevel(6)} class="w-full px-3 py-1 text-left text-sm hover:bg-gray-100 transition-colors">600%</button>
+            <button onclick={() => setZoomLevel(8)} class="w-full px-3 py-1 text-left text-sm hover:bg-gray-100 transition-colors">800%</button>
+            <button onclick={() => setZoomLevel(10)} class="w-full px-3 py-1 text-left text-sm hover:bg-gray-100 transition-colors">1000%</button>
+            <button onclick={() => setZoomLevel(12)} class="w-full px-3 py-1 text-left text-sm hover:bg-gray-100 transition-colors">1200%</button>
           </div>
         {/if}
       </div>
@@ -2822,7 +2853,6 @@
             left: {swatchPos.x}px;
             top: {swatchPos.y}px;
             width: 2.5in;
-            height: 1.5in;
             padding: 0.1in;
             z-index: {isDragging && draggedSwatchIndex === i ? 9999 : 100 + i};
             will-change: transform;
@@ -2831,28 +2861,36 @@
           "
           onmousedown={(e) => handleMouseDown(e, i)}
         >
-          <div style="display: flex; flex-direction: column; gap: 0.05in; height: 100%;">
+          <div style="display: flex; flex-direction: column;">
+            <!-- Color Block (at top) -->
             <div
               class="rounded-lg border border-gray-200"
               style="
                 background-color: {swatch.data.hexColor};
-                height: 1in;
+                height: 0.9in;
                 width: 100%;
+                margin-bottom: 0.05in;
               "
             ></div>
-            <div style="flex: 1; display: flex; flex-direction: column; justify-content: center;">
-              {#if swatch.data.description && swatch.data.description.trim()}
-                <p class="font-medium truncate" style="font-size: 10pt; color: #111; line-height: 1.2;">{swatch.data.description}</p>
-              {/if}
-              {#if showColorFormatOnSwatch}
-                <p class="font-mono" style="font-size: 8pt; color: #666; line-height: 1.1;">
+
+            <!-- Label Section (middle - only shows if label exists) -->
+            {#if swatch.data.description && swatch.data.description.trim()}
+              <div style="padding: 0 0.05in 0.03in 0.05in;">
+                <p class="font-medium" style="font-size: 10pt; color: #111; line-height: 1.5; margin: 0; padding: 0; word-wrap: break-word;">{swatch.data.description}</p>
+              </div>
+            {/if}
+
+            <!-- Color Values Section (at bottom - only shows if enabled) -->
+            {#if showColorFormatOnSwatch}
+              <div style="padding: 0 0.05in 0.01in 0.05in;">
+                <p class="font-mono" style="font-size: 8pt; color: #666; line-height: 1.5; margin: 0; padding: 0;">
                   {colorFormat === 'RGB'
                     ? `RGB(${swatch.data.red}, ${swatch.data.green}, ${swatch.data.blue})`
                     : swatch.data.cmyk
                   }
                 </p>
-              {/if}
-            </div>
+              </div>
+            {/if}
           </div>
         </div>
       {/if}

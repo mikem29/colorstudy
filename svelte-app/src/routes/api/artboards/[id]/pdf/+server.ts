@@ -1,19 +1,9 @@
-import { json, error } from '@sveltejs/kit';
-import { dev } from '$app/environment';
-import fs from 'fs';
-import path from 'path';
+import { error } from '@sveltejs/kit';
 import PDFDocument from 'pdfkit';
 import { getPool } from '$lib/server/db';
 import type { RequestHandler } from './$types';
 
 const pool = getPool();
-
-// Define upload directories based on environment
-const UPLOAD_BASE = dev
-  ? path.resolve(process.cwd(), 'uploads')
-  : '/var/www/huemixy/user-uploads';
-
-const pdfsDir = path.join(UPLOAD_BASE, 'pdfs');
 
 export const POST: RequestHandler = async ({ request, locals, params }) => {
   // Check if user is authenticated
@@ -29,7 +19,7 @@ export const POST: RequestHandler = async ({ request, locals, params }) => {
     let artboard;
     try {
       const [artboards] = await connection.execute(
-        'SELECT * FROM artboards WHERE id = ? AND user_id = ?',
+        'SELECT name FROM artboards WHERE id = ? AND user_id = ?',
         [artboardId, locals.user.id]
       );
       artboard = (artboards as any[])[0];
@@ -40,22 +30,11 @@ export const POST: RequestHandler = async ({ request, locals, params }) => {
       connection.release();
     }
 
-    // Ensure PDFs directory exists
-    if (!fs.existsSync(pdfsDir)) {
-      fs.mkdirSync(pdfsDir, { recursive: true });
-    }
-
     const { imageData, width, height } = await request.json();
 
     if (!imageData || !width || !height) {
-      return json({ status: 'error', message: 'Missing required data' }, { status: 400 });
+      throw error(400, 'Missing required data');
     }
-
-    // Generate unique filename
-    const timestamp = Date.now();
-    const randomString = Math.random().toString(36).substring(7);
-    const filename = `artboard_${artboardId}_${timestamp}_${randomString}.pdf`;
-    const filePath = path.join(pdfsDir, filename);
 
     // Convert base64 image data to buffer
     const base64Data = imageData.replace(/^data:image\/\w+;base64,/, '');
@@ -70,9 +49,10 @@ export const POST: RequestHandler = async ({ request, locals, params }) => {
       margins: { top: 0, bottom: 0, left: 0, right: 0 }
     });
 
-    // Create write stream
-    const writeStream = fs.createWriteStream(filePath);
-    doc.pipe(writeStream);
+    // Collect PDF chunks in memory
+    const chunks: Buffer[] = [];
+    doc.on('data', (chunk) => chunks.push(chunk));
+    doc.on('end', () => {});
 
     // Add image to PDF
     doc.image(imageBuffer, 0, 0, {
@@ -82,21 +62,29 @@ export const POST: RequestHandler = async ({ request, locals, params }) => {
 
     doc.end();
 
-    // Wait for PDF to be written
+    // Wait for PDF to be generated
     await new Promise((resolve, reject) => {
-      writeStream.on('finish', resolve);
-      writeStream.on('error', reject);
+      doc.on('end', resolve);
+      doc.on('error', reject);
     });
 
-    return json({
-      status: 'success',
-      message: 'PDF generated successfully',
-      filename: `pdfs/${filename}`,
-      url: `/uploads/pdfs/${filename}`
+    // Combine chunks
+    const pdfBuffer = Buffer.concat(chunks);
+
+    // Generate filename for download
+    const filename = `${artboard.name || 'artboard'}_${artboardId}.pdf`;
+
+    // Return PDF as download
+    return new Response(pdfBuffer, {
+      headers: {
+        'Content-Type': 'application/pdf',
+        'Content-Disposition': `attachment; filename="${filename}"`,
+        'Content-Length': pdfBuffer.length.toString()
+      }
     });
 
   } catch (err) {
     console.error('PDF generation error:', err);
-    return json({ status: 'error', message: 'PDF generation failed' }, { status: 500 });
+    throw error(500, 'PDF generation failed');
   }
 };
