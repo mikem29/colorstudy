@@ -5,9 +5,23 @@ import type { RequestHandler } from './$types';
 
 const pool = getPool();
 
+async function checkAdminAccess(userId: string): Promise<boolean> {
+  const connection = await pool.getConnection();
+  try {
+    const [users] = await connection.execute(
+      'SELECT email FROM user WHERE id = ?',
+      [userId]
+    );
+    const user = (users as any[])[0];
+    return user?.email === 'michael@indiemade.com';
+  } finally {
+    connection.release();
+  }
+}
+
 // PUT - Update user
 export const PUT: RequestHandler = async ({ request, locals, params }) => {
-  if (!locals.user || locals.user.email !== 'michael@indiemade.com') {
+  if (!locals.user || !(await checkAdminAccess(locals.user.id))) {
     throw error(404, 'Not found');
   }
 
@@ -57,7 +71,7 @@ export const PUT: RequestHandler = async ({ request, locals, params }) => {
 
 // DELETE - Delete user
 export const DELETE: RequestHandler = async ({ locals, params }) => {
-  if (!locals.user || locals.user.email !== 'michael@indiemade.com') {
+  if (!locals.user || !(await checkAdminAccess(locals.user.id))) {
     throw error(404, 'Not found');
   }
 
