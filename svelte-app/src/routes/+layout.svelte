@@ -20,9 +20,6 @@
 
           <div class="flex items-center space-x-4">
             {#if data.user}
-              <span class="text-sm text-gray-700">
-                Welcome, {data.user.email}
-              </span>
               <form action="/logout" method="POST" class="inline">
                 <button
                   type="submit"

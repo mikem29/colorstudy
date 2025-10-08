@@ -133,8 +133,8 @@ export const actions: Actions = {
       throw redirect(302, "/dashboard");
 
     } catch (err) {
-      // If it's a redirect, rethrow it
-      if (err instanceof Error && err.message.includes('redirect')) {
+      // If it's a redirect (Response object), rethrow it
+      if (err instanceof Response) {
         throw err;
       }
 
