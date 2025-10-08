@@ -6,8 +6,8 @@ const pool = getPool();
 
 // GET - List all coupons
 export const GET: RequestHandler = async ({ locals }) => {
-  if (!locals.user) {
-    throw error(401, 'Authentication required');
+  if (!locals.user || locals.user.email !== 'michael@indiemade.com') {
+    throw error(404, 'Not found');
   }
 
   try {
@@ -32,8 +32,8 @@ export const GET: RequestHandler = async ({ locals }) => {
 
 // POST - Create new coupon
 export const POST: RequestHandler = async ({ request, locals }) => {
-  if (!locals.user) {
-    throw error(401, 'Authentication required');
+  if (!locals.user || locals.user.email !== 'michael@indiemade.com') {
+    throw error(404, 'Not found');
   }
 
   try {

@@ -6,8 +6,8 @@ const pool = getPool();
 
 // PUT - Update coupon
 export const PUT: RequestHandler = async ({ request, locals, params }) => {
-  if (!locals.user) {
-    throw error(401, 'Authentication required');
+  if (!locals.user || locals.user.email !== 'michael@indiemade.com') {
+    throw error(404, 'Not found');
   }
 
   const couponId = params.id;
@@ -50,8 +50,8 @@ export const PUT: RequestHandler = async ({ request, locals, params }) => {
 
 // DELETE - Delete coupon
 export const DELETE: RequestHandler = async ({ locals, params }) => {
-  if (!locals.user) {
-    throw error(401, 'Authentication required');
+  if (!locals.user || locals.user.email !== 'michael@indiemade.com') {
+    throw error(404, 'Not found');
   }
 
   const couponId = params.id;

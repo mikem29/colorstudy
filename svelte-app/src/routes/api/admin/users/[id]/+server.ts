@@ -7,8 +7,8 @@ const pool = getPool();
 
 // PUT - Update user
 export const PUT: RequestHandler = async ({ request, locals, params }) => {
-  if (!locals.user) {
-    throw error(401, 'Authentication required');
+  if (!locals.user || locals.user.email !== 'michael@indiemade.com') {
+    throw error(404, 'Not found');
   }
 
   const userId = params.id;
@@ -57,8 +57,8 @@ export const PUT: RequestHandler = async ({ request, locals, params }) => {
 
 // DELETE - Delete user
 export const DELETE: RequestHandler = async ({ locals, params }) => {
-  if (!locals.user) {
-    throw error(401, 'Authentication required');
+  if (!locals.user || locals.user.email !== 'michael@indiemade.com') {
+    throw error(404, 'Not found');
   }
 
   const userId = params.id;

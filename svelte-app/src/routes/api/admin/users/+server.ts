@@ -5,8 +5,8 @@ import type { RequestHandler } from './$types';
 const pool = getPool();
 
 export const GET: RequestHandler = async ({ locals }) => {
-  if (!locals.user) {
-    throw error(401, 'Authentication required');
+  if (!locals.user || locals.user.email !== 'michael@indiemade.com') {
+    throw error(404, 'Not found');
   }
 
   try {
