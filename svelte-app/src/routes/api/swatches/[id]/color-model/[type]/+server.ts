@@ -78,8 +78,9 @@ export const GET: RequestHandler = async ({ params, locals }) => {
         mixId = (mixRows as any[])[0].mix_id;
 
         // Save to cross-reference table for future use
+        // Use INSERT IGNORE to handle race conditions from batched requests
         await connection.execute(
-          'INSERT INTO swatch_color_models (swatch_id, palette_id, mix_id) VALUES (?, ?, ?)',
+          'INSERT IGNORE INTO swatch_color_models (swatch_id, palette_id, mix_id) VALUES (?, ?, ?)',
           [swatchId, paletteId, mixId]
         );
       }
