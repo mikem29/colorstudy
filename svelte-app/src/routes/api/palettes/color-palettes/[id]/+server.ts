@@ -30,8 +30,8 @@ export const DELETE: RequestHandler = async ({ params, locals }) => {
 
     const palette = (palettes as any[])[0];
 
-    // Only allow deletion if user owns it or it's not public
-    if (palette.user_id !== locals.user.id && palette.is_public) {
+    // Only allow deletion if user owns it
+    if (palette.user_id && palette.user_id !== locals.user.id) {
       throw error(403, 'You do not have permission to delete this palette');
     }
 

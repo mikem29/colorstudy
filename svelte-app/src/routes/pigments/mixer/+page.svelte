@@ -351,22 +351,6 @@
             {/if}
           </button>
         </div>
-
-        <!-- Palette Selector -->
-        <div class="flex items-center gap-4">
-          <label class="text-sm font-medium text-gray-700">Color Palette:</label>
-          <select
-            bind:value={selectedPaletteId}
-            on:change={() => selectedPigments = {}}
-            class="px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
-          >
-            {#each colorPalettes as palette}
-              <option value={palette.id}>
-                {palette.name} ({palette.pigment_count} pigments, {palette.mix_count} mixes)
-              </option>
-            {/each}
-          </select>
-        </div>
       </div>
 
       {#if isGenerating}
@@ -402,8 +386,31 @@
               <div class="w-full h-16 rounded mb-3" style="background-color: {pigment.color_hex};"></div>
 
               <!-- Pigment Name -->
-              <div class="text-center text-sm font-medium text-gray-900 mb-3">
+              <div class="text-center text-sm font-medium text-gray-900 mb-2">
                 {pigment.name}
+              </div>
+
+              <!-- Edit/Delete Buttons -->
+              <div class="flex gap-2 mb-3">
+                <button
+                  on:click={() => window.location.href = `/pigments/edit/${pigment.pigment_id}?palette=${selectedPaletteId}`}
+                  class="text-xs text-blue-600 hover:text-blue-800"
+                  title="Edit pigment"
+                >
+                  <i class="fas fa-edit"></i>
+                </button>
+                <button
+                  on:click={async () => {
+                    if (confirm(`Delete "${pigment.name}"?`)) {
+                      await fetch(`/api/pigments/${pigment.pigment_id}`, { method: 'DELETE' });
+                      window.location.reload();
+                    }
+                  }}
+                  class="text-xs text-red-600 hover:text-red-800"
+                  title="Delete pigment"
+                >
+                  <i class="fas fa-trash"></i>
+                </button>
               </div>
 
               <!-- Slider -->

@@ -18,7 +18,14 @@
   let errorMessage = '';
 
   onMount(async () => {
-    await loadPalettes();
+    // Get palette_id from URL parameter
+    const urlParams = new URLSearchParams(window.location.search);
+    const paletteParam = urlParams.get('palette');
+    if (paletteParam) {
+      formData.palette_id = parseInt(paletteParam);
+    } else {
+      await loadPalettes();
+    }
   });
 
   async function loadPalettes() {
@@ -28,7 +35,7 @@
       if (result.status === 'success') {
         colorPalettes = result.data;
         // Select first palette by default
-        if (colorPalettes.length > 0) {
+        if (colorPalettes.length > 0 && !formData.palette_id) {
           formData.palette_id = colorPalettes[0].id;
         }
       }
@@ -141,24 +148,8 @@
   </div>
 
   <form on:submit|preventDefault={handleSubmit} class="space-y-4">
-    <div>
-      <label for="palette" class="block text-sm font-medium text-gray-700 mb-1">
-        Color Palette <span class="text-red-500">*</span>
-      </label>
-      <select
-        id="palette"
-        bind:value={formData.palette_id}
-        required
-        class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
-      >
-        {#each colorPalettes as palette}
-          <option value={palette.id}>
-            {palette.name} ({palette.pigment_count} pigments)
-          </option>
-        {/each}
-      </select>
-      <p class="text-xs text-gray-500 mt-1">Select which paint palette this pigment belongs to</p>
-    </div>
+    <!-- Hidden palette field -->
+    <input type="hidden" bind:value={formData.palette_id} />
 
     <div>
       <label for="name" class="block text-sm font-medium text-gray-700 mb-1">
@@ -196,13 +187,13 @@
           Red <span class="text-red-500">*</span>
         </label>
         <input
-          type="number"
+          type="text"
+          inputmode="numeric"
+          pattern="[0-9]*"
           id="r"
           bind:value={formData.r}
           on:input={handleRgbChange}
           required
-          min="0"
-          max="255"
           class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
         />
       </div>
@@ -212,13 +203,13 @@
           Green <span class="text-red-500">*</span>
         </label>
         <input
-          type="number"
+          type="text"
+          inputmode="numeric"
+          pattern="[0-9]*"
           id="g"
           bind:value={formData.g}
           on:input={handleRgbChange}
           required
-          min="0"
-          max="255"
           class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
         />
       </div>
@@ -228,13 +219,13 @@
           Blue <span class="text-red-500">*</span>
         </label>
         <input
-          type="number"
+          type="text"
+          inputmode="numeric"
+          pattern="[0-9]*"
           id="b"
           bind:value={formData.b}
           on:input={handleRgbChange}
           required
-          min="0"
-          max="255"
           class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
         />
       </div>

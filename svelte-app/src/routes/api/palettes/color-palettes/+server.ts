@@ -30,10 +30,18 @@ export const GET: RequestHandler = async ({ locals }) => {
 
     const [rows] = await connection.execute(query, params);
 
-    // Add placeholder counts (will calculate separately later if needed)
+    // Get actual counts for each palette
     for (const row of rows as any[]) {
-      row.pigment_count = 0;
-      row.mix_count = 0;
+      const [pigmentCounts] = await connection.execute(
+        'SELECT COUNT(*) as count FROM pigments WHERE palette_id = ?',
+        [row.id]
+      );
+      const [mixCounts] = await connection.execute(
+        'SELECT COUNT(*) as count FROM pigment_mixes WHERE palette_id = ?',
+        [row.id]
+      );
+      row.pigment_count = (pigmentCounts as any[])[0].count;
+      row.mix_count = (mixCounts as any[])[0].count;
     }
 
     // TODO: Re-enable pigment loading after debugging

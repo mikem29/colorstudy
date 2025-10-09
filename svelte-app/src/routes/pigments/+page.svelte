@@ -101,7 +101,7 @@
                 <p class="text-sm text-gray-600 mt-1">{palette.description}</p>
               {/if}
               <p class="text-xs text-gray-500 mt-2">
-                Pigments: {palette.pigment_count || 0} | Mixes: {palette.mix_count || 0}
+                Pigments: {(palette.pigment_count || 0).toLocaleString()} | Mixes: {(palette.mix_count || 0).toLocaleString()}
               </p>
               <div class="flex gap-2 mt-3">
                 <button
