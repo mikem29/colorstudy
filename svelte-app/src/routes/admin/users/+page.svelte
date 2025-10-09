@@ -2,10 +2,16 @@
   import { onMount } from 'svelte';
 
   let users = [];
+  let artboards = [];
+  let sessions = [];
   let loading = true;
+  let loadingArtboards = true;
+  let loadingSessions = true;
   let searchQuery = '';
   let showModal = false;
   let editingUser = null;
+  let activeUsersCount = 0;
+  let totalSessions = 0;
 
   let formData = {
     email: '',
@@ -15,6 +21,8 @@
 
   onMount(() => {
     loadUsers();
+    loadArtboards();
+    loadSessions();
   });
 
   async function loadUsers() {
@@ -30,6 +38,46 @@
     } finally {
       loading = false;
     }
+  }
+
+  async function loadArtboards() {
+    loadingArtboards = true;
+    try {
+      const response = await fetch('/api/admin/artboards');
+      const result = await response.json();
+      if (result.status === 'success') {
+        artboards = result.data;
+      }
+    } catch (error) {
+      console.error('Error loading artboards:', error);
+    } finally {
+      loadingArtboards = false;
+    }
+  }
+
+  async function loadSessions() {
+    loadingSessions = true;
+    try {
+      const response = await fetch('/api/admin/sessions');
+      const result = await response.json();
+      if (result.status === 'success') {
+        sessions = result.data.sessions;
+        activeUsersCount = result.data.active_users;
+        totalSessions = result.data.total_sessions;
+      }
+    } catch (error) {
+      console.error('Error loading sessions:', error);
+    } finally {
+      loadingSessions = false;
+    }
+  }
+
+  function formatTimeRemaining(seconds) {
+    const days = Math.floor(seconds / 86400);
+    const hours = Math.floor((seconds % 86400) / 3600);
+    if (days > 0) return `${days}d ${hours}h`;
+    if (hours > 0) return `${hours}h`;
+    return `${Math.floor(seconds / 60)}m`;
   }
 
   function openEditModal(user) {
@@ -103,6 +151,12 @@
       user.id?.toLowerCase().includes(query)
     );
   });
+
+  $: activeUserIds = new Set(sessions.map(s => s.user_id));
+
+  function isUserOnline(userId) {
+    return activeUserIds.has(userId);
+  }
 </script>
 
 <div class="p-8">
@@ -148,11 +202,19 @@
             <tr class="hover:bg-gray-50">
               <td class="px-6 py-4 whitespace-nowrap">
                 <div class="flex items-center">
-                  <div class="flex-shrink-0 h-10 w-10 bg-blue-100 rounded-full flex items-center justify-center">
+                  <div class="flex-shrink-0 h-10 w-10 bg-blue-100 rounded-full flex items-center justify-center relative">
                     <i class="fas fa-user text-blue-600"></i>
+                    {#if isUserOnline(user.id)}
+                      <span class="absolute -bottom-1 -right-1 h-4 w-4 bg-green-500 border-2 border-white rounded-full" title="Online"></span>
+                    {/if}
                   </div>
                   <div class="ml-4">
-                    <div class="text-sm font-medium text-gray-900">{user.email}</div>
+                    <div class="flex items-center space-x-2">
+                      <span class="text-sm font-medium text-gray-900">{user.email}</span>
+                      {#if isUserOnline(user.id)}
+                        <span class="px-2 py-0.5 text-xs bg-green-100 text-green-800 rounded-full">Online</span>
+                      {/if}
+                    </div>
                   </div>
                 </div>
               </td>
@@ -191,6 +253,176 @@
       Showing {filteredUsers.length} of {users.length} users
     </div>
   {/if}
+
+  <!-- Active Sessions Section -->
+  <div class="mt-12">
+    <div class="mb-6 flex items-center justify-between">
+      <div>
+        <h2 class="text-2xl font-bold text-gray-900">Active Sessions</h2>
+        <p class="text-gray-600 mt-2">Currently logged in users</p>
+      </div>
+      {#if !loadingSessions}
+        <div class="flex items-center space-x-6">
+          <div class="text-center">
+            <div class="text-3xl font-bold text-green-600">{activeUsersCount}</div>
+            <div class="text-sm text-gray-600">Active Users</div>
+          </div>
+          <div class="text-center">
+            <div class="text-3xl font-bold text-blue-600">{totalSessions}</div>
+            <div class="text-sm text-gray-600">Total Sessions</div>
+          </div>
+        </div>
+      {/if}
+    </div>
+
+    {#if loadingSessions}
+      <div class="flex items-center justify-center p-12">
+        <i class="fas fa-spinner fa-spin text-4xl text-blue-600"></i>
+      </div>
+    {:else if sessions.length === 0}
+      <div class="bg-white rounded-lg shadow p-12 text-center">
+        <i class="fas fa-user-slash text-6xl text-gray-300 mb-4"></i>
+        <p class="text-xl text-gray-600">No active sessions</p>
+      </div>
+    {:else}
+      <div class="bg-white rounded-lg shadow overflow-hidden">
+        <table class="w-full">
+          <thead class="bg-gray-50 border-b">
+            <tr>
+              <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">User</th>
+              <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Session ID</th>
+              <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Expires</th>
+              <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Time Remaining</th>
+              <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Status</th>
+            </tr>
+          </thead>
+          <tbody class="divide-y divide-gray-200">
+            {#each sessions as session}
+              <tr class="hover:bg-gray-50">
+                <td class="px-6 py-4">
+                  <div class="flex items-center">
+                    <div class="flex-shrink-0 h-10 w-10 bg-green-100 rounded-full flex items-center justify-center">
+                      <i class="fas fa-user text-green-600"></i>
+                    </div>
+                    <div class="ml-4">
+                      <div class="text-sm font-medium text-gray-900">{session.email}</div>
+                      <span class="px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full {session.subscription_tier === 'paid' ? 'bg-purple-100 text-purple-800' : 'bg-gray-100 text-gray-800'}">
+                        {session.subscription_tier === 'paid' ? 'pro' : 'free'}
+                      </span>
+                    </div>
+                  </div>
+                </td>
+                <td class="px-6 py-4">
+                  <span class="text-xs font-mono text-gray-500">{session.session_id.substring(0, 16)}...</span>
+                </td>
+                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
+                  {new Date(session.expires_at_date).toLocaleString()}
+                </td>
+                <td class="px-6 py-4 whitespace-nowrap">
+                  <span class="text-sm font-medium text-gray-900">
+                    {formatTimeRemaining(session.time_until_expiry)}
+                  </span>
+                </td>
+                <td class="px-6 py-4 whitespace-nowrap">
+                  <span class="px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full bg-green-100 text-green-800">
+                    <i class="fas fa-circle text-green-500 mr-1 text-xs"></i>
+                    Active
+                  </span>
+                </td>
+              </tr>
+            {/each}
+          </tbody>
+        </table>
+      </div>
+
+      <div class="mt-4 text-sm text-gray-600">
+        Showing {sessions.length} active sessions from {activeUsersCount} users
+      </div>
+    {/if}
+  </div>
+
+  <!-- All Artboards Section -->
+  <div class="mt-12">
+    <div class="mb-6">
+      <h2 class="text-2xl font-bold text-gray-900">All Artboards</h2>
+      <p class="text-gray-600 mt-2">View all user artboards for support and monitoring</p>
+    </div>
+
+    {#if loadingArtboards}
+      <div class="flex items-center justify-center p-12">
+        <i class="fas fa-spinner fa-spin text-4xl text-blue-600"></i>
+      </div>
+    {:else if artboards.length === 0}
+      <div class="bg-white rounded-lg shadow p-12 text-center">
+        <i class="fas fa-palette text-6xl text-gray-300 mb-4"></i>
+        <p class="text-xl text-gray-600">No artboards created yet</p>
+      </div>
+    {:else}
+      <div class="bg-white rounded-lg shadow overflow-hidden">
+        <table class="w-full">
+          <thead class="bg-gray-50 border-b">
+            <tr>
+              <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Artboard</th>
+              <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">User</th>
+              <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Size</th>
+              <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Content</th>
+              <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Last Updated</th>
+              <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase">Actions</th>
+            </tr>
+          </thead>
+          <tbody class="divide-y divide-gray-200">
+            {#each artboards as artboard}
+              <tr class="hover:bg-gray-50">
+                <td class="px-6 py-4">
+                  <div class="flex items-center">
+                    <div class="flex-shrink-0 h-10 w-10 bg-purple-100 rounded-lg flex items-center justify-center">
+                      <i class="fas fa-palette text-purple-600"></i>
+                    </div>
+                    <div class="ml-4">
+                      <div class="text-sm font-medium text-gray-900">{artboard.name}</div>
+                      <div class="text-xs text-gray-500">ID: {artboard.id}</div>
+                    </div>
+                  </div>
+                </td>
+                <td class="px-6 py-4">
+                  <div class="text-sm text-gray-900">{artboard.user_email}</div>
+                  <span class="px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full {artboard.subscription_tier === 'paid' ? 'bg-purple-100 text-purple-800' : 'bg-gray-100 text-gray-800'}">
+                    {artboard.subscription_tier === 'paid' ? 'pro' : 'free'}
+                  </span>
+                </td>
+                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
+                  {artboard.width_inches}" × {artboard.height_inches}"
+                </td>
+                <td class="px-6 py-4 whitespace-nowrap">
+                  <div class="text-sm text-gray-900">
+                    <i class="fas fa-image text-gray-400 mr-1"></i> {artboard.image_count}
+                    <i class="fas fa-palette text-gray-400 ml-3 mr-1"></i> {artboard.swatch_count}
+                  </div>
+                </td>
+                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
+                  {new Date(artboard.updated_at).toLocaleDateString()}
+                </td>
+                <td class="px-6 py-4 whitespace-nowrap text-right text-sm">
+                  <a
+                    href="/artboard/{artboard.id}"
+                    target="_blank"
+                    class="inline-flex items-center px-3 py-1 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+                  >
+                    <i class="fas fa-external-link-alt mr-2"></i>
+                    View
+                  </a>
+                </td>
+              </tr>
+            {/each}
+          </tbody>
+        </table>
+      </div>
+
+      <div class="mt-4 text-sm text-gray-600">
+        Showing {artboards.length} artboards
+      </div>
+    {/if}
+  </div>
 </div>
 
 <!-- Edit User Modal -->

@@ -1,8 +1,19 @@
-import { json } from '@sveltejs/kit';
+import { json, error } from '@sveltejs/kit';
 import { getConnection } from '$lib/server/db';
 
+// Check if user is admin
+async function checkAdminAccess(connection, userId) {
+  if (!userId) return false;
+  const [users] = await connection.execute(
+    'SELECT email FROM user WHERE id = ?',
+    [userId]
+  );
+  const user = users[0];
+  return user?.email === 'michael@indiemade.com';
+}
+
 // Get artboard with images and swatches
-export async function GET({ params }) {
+export async function GET({ params, locals }) {
   try {
     const connection = await getConnection();
     const { id } = params;
@@ -16,6 +27,21 @@ export async function GET({ params }) {
     if (artboards.length === 0) {
       await connection.end();
       return json({ status: 'error', message: 'Artboard not found.' }, { status: 404 });
+    }
+
+    const artboard = artboards[0];
+
+    // Check if user is authenticated
+    if (!locals.user) {
+      await connection.end();
+      throw error(401, 'Authentication required');
+    }
+
+    // Check if user owns this artboard or is admin
+    const isAdmin = await checkAdminAccess(connection, locals.user.id);
+    if (artboard.user_id !== locals.user.id && !isAdmin) {
+      await connection.end();
+      throw error(403, 'Access denied');
     }
 
     // Get images for this artboard

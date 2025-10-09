@@ -2703,6 +2703,50 @@
       <!-- Horizontal ruler markers would go here -->
     </div>
 
+    <!-- Empty State Helper for Blank Artboards -->
+    {#if artboardImages.length === 0}
+      <div class="absolute inset-0 flex items-center justify-center z-10 pointer-events-none">
+        <div class="bg-white rounded-2xl shadow-xl border-2 border-gray-300 p-8 max-w-md text-center pointer-events-auto">
+          <div class="mb-6">
+            <div class="inline-flex items-center justify-center w-16 h-16 bg-gradient-to-r from-blue-600 to-purple-600 rounded-full mb-4">
+              <i class="fas fa-image text-white text-2xl"></i>
+            </div>
+            <h3 class="text-2xl font-bold text-gray-900 mb-2">Get Started</h3>
+            <p class="text-gray-600 mb-6">Upload your first image to create color swatches</p>
+          </div>
+
+          <div class="space-y-4 text-left">
+            <div class="flex items-start space-x-3">
+              <div class="flex-shrink-0 w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center text-blue-600 font-semibold">1</div>
+              <div>
+                <p class="font-semibold text-gray-900">Upload an Image</p>
+                <p class="text-sm text-gray-600">Click the button below or use the <i class="fas fa-image"></i> icon in the toolbar</p>
+              </div>
+            </div>
+
+            <div class="flex items-start space-x-3">
+              <div class="flex-shrink-0 w-8 h-8 bg-purple-100 rounded-full flex items-center justify-center text-purple-600 font-semibold">2</div>
+              <div>
+                <p class="font-semibold text-gray-900">Sample Colors</p>
+                <p class="text-sm text-gray-600">Use the <i class="fas fa-eye-dropper"></i> color dropper tool to click anywhere on your image</p>
+              </div>
+            </div>
+          </div>
+
+          <button
+            onclick={() => {
+              const fileInput = document.querySelector('input[type="file"]#image-upload-input');
+              if (fileInput) fileInput.click();
+            }}
+            class="mt-6 w-full py-3 px-6 bg-gradient-to-r from-blue-600 to-purple-600 text-white rounded-lg font-semibold hover:from-blue-700 hover:to-purple-700 transition-all shadow-lg"
+          >
+            <i class="fas fa-upload mr-2"></i>
+            Upload Your First Image
+          </button>
+        </div>
+      </div>
+    {/if}
+
     <!-- Multiple Images within Artboard -->
     {#each artboardImages as image, index (image.id)}
       <div
