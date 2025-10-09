@@ -10,47 +10,40 @@ export const GET: RequestHandler = async ({ locals }) => {
 
   try {
     // Get all palettes (public ones + user's own palettes if logged in)
+    // Simplified query without counts to avoid timeout
     let query;
     let params;
 
     if (locals.user) {
       // Logged in: show public palettes + user's own palettes
-      query = `SELECT
-        cp.*,
-        COUNT(DISTINCT p.pigment_id) as pigment_count,
-        COUNT(DISTINCT pm.mix_id) as mix_count
-       FROM color_palettes cp
-       LEFT JOIN pigments p ON cp.id = p.palette_id
-       LEFT JOIN pigment_mixes pm ON cp.id = pm.palette_id
-       WHERE cp.is_public = TRUE OR cp.user_id = ?
-       GROUP BY cp.id
-       ORDER BY cp.is_public DESC, cp.name ASC`;
+      query = `SELECT * FROM color_palettes
+               WHERE is_public = TRUE OR user_id = ?
+               ORDER BY is_public DESC, name ASC`;
       params = [locals.user.id];
     } else {
       // Not logged in: only show public palettes
-      query = `SELECT
-        cp.*,
-        COUNT(DISTINCT p.pigment_id) as pigment_count,
-        COUNT(DISTINCT pm.mix_id) as mix_count
-       FROM color_palettes cp
-       LEFT JOIN pigments p ON cp.id = p.palette_id
-       LEFT JOIN pigment_mixes pm ON cp.id = pm.palette_id
-       WHERE cp.is_public = TRUE
-       GROUP BY cp.id
-       ORDER BY cp.name ASC`;
+      query = `SELECT * FROM color_palettes
+               WHERE is_public = TRUE
+               ORDER BY name ASC`;
       params = [];
     }
 
     const [rows] = await connection.execute(query, params);
 
-    // Fetch pigments for each palette
-    for (const palette of rows as any[]) {
-      const [pigments] = await connection.execute(
-        'SELECT pigment_id, name, color_hex, r, g, b, type FROM pigments WHERE palette_id = ? ORDER BY name ASC',
-        [palette.id]
-      );
-      palette.pigments = pigments;
+    // Add placeholder counts (will calculate separately later if needed)
+    for (const row of rows as any[]) {
+      row.pigment_count = 0;
+      row.mix_count = 0;
     }
+
+    // TODO: Re-enable pigment loading after debugging
+    // for (const palette of rows as any[]) {
+    //   const [pigments] = await connection.execute(
+    //     'SELECT pigment_id, name, color_hex, r, g, b, type FROM pigments WHERE palette_id = ? ORDER BY name ASC',
+    //     [palette.id]
+    //   );
+    //   palette.pigments = pigments;
+    // }
 
     return json({
       status: 'success',

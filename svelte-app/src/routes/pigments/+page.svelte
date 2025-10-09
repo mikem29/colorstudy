@@ -11,10 +11,16 @@
 
   async function loadPalettes() {
     try {
+      console.log('Fetching palettes...');
       const response = await fetch('/api/palettes/color-palettes');
+      console.log('Response status:', response.status);
       const result = await response.json();
+      console.log('Result:', result);
       if (result.status === 'success') {
         palettes = result.data;
+        console.log('Palettes loaded:', palettes);
+      } else {
+        console.error('Failed to load palettes:', result);
       }
     } catch (err) {
       console.error('Error loading palettes:', err);
@@ -25,6 +31,30 @@
 
   function openPalette(paletteId) {
     goto(`/pigments/mixer?palette=${paletteId}`);
+  }
+
+  async function deletePalette(paletteId, paletteName) {
+    if (!confirm(`Are you sure you want to delete "${paletteName}"? This will also delete all pigments and mixes in this palette.`)) {
+      return;
+    }
+
+    try {
+      const response = await fetch(`/api/palettes/color-palettes/${paletteId}`, {
+        method: 'DELETE'
+      });
+
+      const result = await response.json();
+
+      if (result.status === 'success') {
+        // Reload palettes
+        await loadPalettes();
+      } else {
+        alert(`Failed to delete palette: ${result.message}`);
+      }
+    } catch (err) {
+      console.error('Error deleting palette:', err);
+      alert('An error occurred while deleting the palette');
+    }
   }
 </script>
 
@@ -47,80 +77,54 @@
     {#if loading}
       <div class="flex items-center justify-center p-12">
         <i class="fas fa-spinner fa-spin text-4xl text-indigo-600"></i>
+        <p class="ml-4 text-gray-600">Loading palettes...</p>
       </div>
     {:else if palettes.length === 0}
-      <div class="text-center p-12">
+      <div class="text-center p-12 bg-white rounded-lg border border-gray-200">
         <i class="fas fa-palette text-6xl text-gray-300 mb-4"></i>
-        <p class="text-gray-600">No palettes found</p>
+        <p class="text-gray-600 mb-2">No palettes found</p>
+        <p class="text-sm text-gray-500">Check browser console for debug info</p>
       </div>
     {:else}
-      <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        {#each palettes as palette}
-          <div
-            class="bg-white rounded-xl shadow-md hover:shadow-xl transition-shadow cursor-pointer border border-gray-200 overflow-hidden"
-            on:click={() => openPalette(palette.id)}
-            on:keydown={(e) => e.key === 'Enter' && openPalette(palette.id)}
-            role="button"
-            tabindex="0"
-          >
-            <!-- Palette Header -->
-            <div class="p-6 border-b border-gray-200">
-              <h3 class="text-xl font-semibold text-gray-900 mb-1">
+      <div class="bg-white rounded-lg border border-gray-200 p-6">
+        <p class="text-sm text-gray-500 mb-4">Found {palettes.length} palette(s)</p>
+        <div class="space-y-4">
+          {#each palettes as palette}
+            <div class="border-b border-gray-200 pb-4 last:border-0">
+              <h3 class="text-lg font-semibold text-gray-900">
                 {palette.name}
               </h3>
+              <p class="text-sm text-gray-600 mt-1">
+                ID: {palette.id} | Type: {palette.type} | Public: {palette.is_public}
+              </p>
               {#if palette.description}
-                <p class="text-sm text-gray-600">{palette.description}</p>
+                <p class="text-sm text-gray-600 mt-1">{palette.description}</p>
               {/if}
-              <div class="flex items-center gap-4 mt-3 text-xs text-gray-500">
-                <span>
+              <p class="text-xs text-gray-500 mt-2">
+                Pigments: {palette.pigment_count || 0} | Mixes: {palette.mix_count || 0}
+              </p>
+              <div class="flex gap-2 mt-3">
+                <button
+                  on:click={() => openPalette(palette.id)}
+                  class="text-sm text-indigo-600 hover:text-indigo-800"
+                >
                   <i class="fas fa-palette mr-1"></i>
-                  {palette.pigment_count} pigments
-                </span>
-                <span>
-                  <i class="fas fa-flask mr-1"></i>
-                  {palette.mix_count.toLocaleString()} mixes
-                </span>
-                <span class="capitalize">
-                  <i class="fas fa-tag mr-1"></i>
-                  {palette.type}
-                </span>
+                  Open Mixer →
+                </button>
+                <button
+                  on:click={(e) => {
+                    e.stopPropagation();
+                    deletePalette(palette.id, palette.name);
+                  }}
+                  class="text-sm text-red-600 hover:text-red-800"
+                >
+                  <i class="fas fa-trash mr-1"></i>
+                  Delete
+                </button>
               </div>
             </div>
-
-            <!-- Color Swatches Grid -->
-            <div class="p-6">
-              {#if palette.pigments && palette.pigments.length > 0}
-                <div class="flex flex-wrap gap-2">
-                  {#each palette.pigments as pigment}
-                    <div
-                      class="w-12 h-12 rounded-full border-2 border-white shadow-md transition-transform hover:scale-110"
-                      style="background-color: {pigment.color_hex};"
-                      title={pigment.name}
-                    ></div>
-                  {/each}
-                </div>
-              {:else}
-                <p class="text-sm text-gray-400 italic">No pigments yet</p>
-              {/if}
-            </div>
-
-            <!-- Footer -->
-            <div class="px-6 py-4 bg-gray-50 border-t border-gray-200">
-              <div class="flex items-center justify-between text-sm">
-                <span class="text-gray-600">
-                  {#if palette.is_public}
-                    <i class="fas fa-globe mr-1"></i> Public
-                  {:else}
-                    <i class="fas fa-lock mr-1"></i> Private
-                  {/if}
-                </span>
-                <span class="text-indigo-600 font-medium">
-                  Open Mixer <i class="fas fa-arrow-right ml-1"></i>
-                </span>
-              </div>
-            </div>
-          </div>
-        {/each}
+          {/each}
+        </div>
       </div>
     {/if}
   </div>
