@@ -258,6 +258,7 @@
       <div>
         <h3 class="text-white font-semibold mb-4">Company</h3>
         <ul class="space-y-2 text-sm">
+          <li><a href="/why" class="hover:text-white transition-colors">Why HueMixy</a></li>
           <li><a href="/support" class="hover:text-white transition-colors">Support</a></li>
         </ul>
       </div>
