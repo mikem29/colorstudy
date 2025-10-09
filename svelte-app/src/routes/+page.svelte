@@ -1,6 +1,16 @@
 <svelte:head>
   <title>HueMixy - Stop Guessing Colors, Start Seeing Them</title>
   <meta name="description" content="Your eyes lie about color. That brown tree trunk? It's grey. HueMixy isolates true color values from reference images, creates printable mixing guides with spatial reference, and supports any printer format." />
+
+  <!-- Google tag (gtag.js) -->
+  <script async src="https://www.googletagmanager.com/gtag/js?id=AW-306485116"></script>
+  <script>
+    window.dataLayer = window.dataLayer || [];
+    function gtag(){dataLayer.push(arguments);}
+    gtag('js', new Date());
+
+    gtag('config', 'AW-306485116');
+  </script>
 </svelte:head>
 
 <!-- Hero Section -->
