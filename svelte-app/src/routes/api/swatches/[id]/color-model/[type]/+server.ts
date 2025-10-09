@@ -58,18 +58,15 @@ export const GET: RequestHandler = async ({ params, locals }) => {
       mixId = (existingModels as any[])[0].mix_id;
     } else {
       // Generate on-demand by finding closest mix in THIS palette
+      // Using separate R,G,B columns for much faster integer math
       const [mixRows] = await connection.execute(
         `SELECT
           pm.mix_id,
           pm.final_rgb,
-          SQRT(
-            POW(SUBSTRING_INDEX(pm.final_rgb, ',', 1) - ?, 2) +
-            POW(SUBSTRING_INDEX(SUBSTRING_INDEX(pm.final_rgb, ',', 2), ',', -1) - ?, 2) +
-            POW(SUBSTRING_INDEX(pm.final_rgb, ',', -1) - ?, 2)
-          ) as distance
+          (POW(pm.final_r - ?, 2) + POW(pm.final_g - ?, 2) + POW(pm.final_b - ?, 2)) as distance_squared
         FROM pigment_mixes pm
         WHERE pm.type = 'virtual' AND pm.palette_id = ?
-        ORDER BY distance ASC
+        ORDER BY distance_squared ASC
         LIMIT 1`,
         [swatch.red, swatch.green, swatch.blue, paletteId]
       );

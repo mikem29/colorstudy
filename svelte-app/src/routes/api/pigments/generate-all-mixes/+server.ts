@@ -31,8 +31,8 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 
     const connection = await pool.getConnection();
     try {
-      // Get all pigments
-      const [pigments] = await connection.execute('SELECT pigment_id, r, g, b FROM pigments');
+      // Get all pigments (grouped by palette)
+      const [pigments] = await connection.execute('SELECT pigment_id, palette_id, r, g, b FROM pigments');
       const pigmentList = pigments as any[];
 
       if (pigmentList.length === 0) {
@@ -76,12 +76,18 @@ export const POST: RequestHandler = async ({ request, locals }) => {
                 b += pigment.b * weight;
               });
 
-              const finalRgb = `${Math.round(r)},${Math.round(g)},${Math.round(b)}`;
+              const finalR = Math.round(r);
+              const finalG = Math.round(g);
+              const finalB = Math.round(b);
+              const finalRgb = `${finalR},${finalG},${finalB}`;
 
-              // Insert the mix
+              // All pigments in a mix should have the same palette_id
+              const paletteId = combo[0].palette_id;
+
+              // Insert the mix with separate RGB columns for faster queries
               const [mixResult] = await connection.execute(
-                'INSERT INTO pigment_mixes (type, final_rgb, user_id) VALUES (?, ?, ?)',
-                ['virtual', finalRgb, locals.user.id]
+                'INSERT INTO pigment_mixes (palette_id, type, final_rgb, final_r, final_g, final_b, user_id) VALUES (?, ?, ?, ?, ?, ?, ?)',
+                [paletteId, 'virtual', finalRgb, finalR, finalG, finalB, locals.user.id]
               );
 
               const mixId = (mixResult as any).insertId;
