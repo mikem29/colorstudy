@@ -104,7 +104,7 @@
 
         // Redirect to mixer after 1.5 seconds
         setTimeout(() => {
-          goto('/pigments');
+          goto('/pigments/mixer');
         }, 1500);
       } else {
         errorMessage = result.message || 'Failed to add pigment';

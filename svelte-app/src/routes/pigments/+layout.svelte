@@ -21,6 +21,13 @@
             href="/pigments"
             class="text-sm px-3 py-2 rounded-md {$page.url.pathname === '/pigments' ? 'bg-indigo-600 text-white' : 'text-indigo-600 hover:bg-indigo-50'}"
           >
+            <i class="fas fa-swatchbook mr-1"></i>
+            Palettes
+          </a>
+          <a
+            href="/pigments/mixer"
+            class="text-sm px-3 py-2 rounded-md {$page.url.pathname === '/pigments/mixer' ? 'bg-indigo-600 text-white' : 'text-indigo-600 hover:bg-indigo-50'}"
+          >
             <i class="fas fa-palette mr-1"></i>
             Mixer
           </a>
