@@ -97,9 +97,39 @@ export const GET: RequestHandler = async ({ params, locals }) => {
       );
 
       if ((details as any[]).length > 0) {
-        formula = (details as any[])
-          .map(d => `${d.parts} ${d.parts === 1 ? 'part' : 'parts'} ${d.name}`)
-          .join(' + ');
+        // Round percentages to nearest 10% and ensure they sum to 100%
+        const detailsArray = details as any[];
+        const rawPercentages = detailsArray.map(d => parseFloat(d.percentage));
+
+        // Round each to nearest 10%
+        let roundedPercentages = rawPercentages.map(p => Math.round(p / 10) * 10);
+
+        // Calculate the difference from 100%
+        let sum = roundedPercentages.reduce((acc, p) => acc + p, 0);
+        let diff = 100 - sum;
+
+        // Adjust the largest percentage(s) to make sum = 100%
+        if (diff !== 0) {
+          // Find indices sorted by raw percentage (largest first)
+          const indices = detailsArray
+            .map((_, i) => i)
+            .sort((a, b) => rawPercentages[b] - rawPercentages[a]);
+
+          // Distribute the difference by adjusting 10% at a time
+          let adjustment = diff > 0 ? 10 : -10;
+          let remaining = Math.abs(diff);
+
+          for (let i = 0; i < indices.length && remaining > 0; i++) {
+            const idx = indices[i];
+            roundedPercentages[idx] += adjustment;
+            remaining -= 10;
+          }
+        }
+
+        // Build formula string
+        formula = detailsArray
+          .map((d, i) => `${roundedPercentages[i]}% ${d.name}`)
+          .join(', ');
       }
     }
 

@@ -4,8 +4,6 @@
   import { page } from '$app/stores';
   import html2canvas from 'html2canvas';
 
-  export let data;
-
   let artboard = null;
   let images = [];
   let swatches = [];
@@ -22,10 +20,10 @@
   let swatchLabelInput = '';
   let saveTimeout = null;
   let generatingPDF = false;
-
-  $: artboardId = $page.params.id;
+  let artboardId = '';
 
   onMount(() => {
+    artboardId = $page.params.id;
     loadArtboard();
     loadPreferences();
     loadColorPalettes();
@@ -337,20 +335,18 @@
           <p class="text-xs text-gray-500">Controls the area used for color sampling</p>
         </div>
 
-        <!-- Color Format Control -->
+        <!-- Color Control -->
         <div class="space-y-3">
           <label class="block text-xs font-medium text-gray-700 uppercase tracking-wide">
             <i class="fas fa-palette mr-2"></i>
-            Color Format
+            Color
           </label>
           <select bind:value={colorFormat} class="w-full px-3 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
             <option value="RGB">RGB</option>
             <option value="CMYK">CMYK</option>
-            <optgroup label="Paint Palettes">
-              {#each colorPalettes as palette}
-                <option value="PALETTE_{palette.id}">{palette.name} ({palette.pigment_count} colors, {palette.mix_count} mixes)</option>
-              {/each}
-            </optgroup>
+            {#each colorPalettes as palette}
+              <option value="PALETTE_{palette.id}">{palette.name}</option>
+            {/each}
           </select>
           <p class="text-xs text-gray-500">Choose color format or paint palette</p>
         </div>

@@ -81,21 +81,41 @@ export async function POST({ params, request, locals }) {
   }
 }
 
-// Update artboard name
+// Update artboard name and/or default palette
 export async function PATCH({ params, request }) {
   try {
     const { id } = params;
-    const { name } = await request.json();
-
-    if (!name || !name.trim()) {
-      return json({ status: 'error', message: 'Name is required.' }, { status: 400 });
-    }
+    const { name, default_palette_id } = await request.json();
 
     const connection = await getConnection();
 
+    // Build dynamic update query based on provided fields
+    const updates = [];
+    const values = [];
+
+    if (name !== undefined) {
+      if (!name || !name.trim()) {
+        await connection.end();
+        return json({ status: 'error', message: 'Name cannot be empty.' }, { status: 400 });
+      }
+      updates.push('name = ?');
+      values.push(name.trim());
+    }
+
+    if (default_palette_id !== undefined) {
+      updates.push('default_palette_id = ?');
+      values.push(default_palette_id || null);
+    }
+
+    if (updates.length === 0) {
+      await connection.end();
+      return json({ status: 'error', message: 'No fields to update.' }, { status: 400 });
+    }
+
+    values.push(id);
     const [result] = await connection.execute(
-      'UPDATE artboards SET name = ? WHERE id = ?',
-      [name.trim(), id]
+      `UPDATE artboards SET ${updates.join(', ')} WHERE id = ?`,
+      values
     );
 
     await connection.end();

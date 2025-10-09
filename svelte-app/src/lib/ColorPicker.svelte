@@ -1758,32 +1758,79 @@
 
   async function fetchPaletteFormulas(paletteId) {
     // Fetch paint formulas for all swatches that don't have them yet for this palette
+    const paletteKey = `palette_${paletteId}`;
+
+    // Collect all swatches that need formulas
+    const swatchesToFetch = [];
+
     for (let i = 0; i < swatchPlaceholders.length; i++) {
       const swatch = swatchPlaceholders[i];
-      if (swatch.filled && swatch.data.id) {
-        // Check if we already have a formula for this palette
-        const paletteKey = `palette_${paletteId}`;
-        if (!swatch.data[paletteKey]) {
+      if (swatch.filled && swatch.data.id && !swatch.data[paletteKey]) {
+        swatchesToFetch.push({ index: i, swatch });
+      }
+    }
+
+    if (swatchesToFetch.length === 0) {
+      console.log('No formulas to fetch');
+      return;
+    }
+
+    console.log(`Fetching formulas for ${swatchesToFetch.length} swatches in batches of 3`);
+
+    // Process in batches of 3 to avoid overwhelming the server
+    const BATCH_SIZE = 3;
+    for (let batchStart = 0; batchStart < swatchesToFetch.length; batchStart += BATCH_SIZE) {
+      const batch = swatchesToFetch.slice(batchStart, batchStart + BATCH_SIZE);
+      const batchPromises = batch.map(({ index, swatch }) => {
+        return (async () => {
           try {
+            console.log(`Fetching formula for swatch ${swatch.data.id} (index ${index}), palette ${paletteId}`);
             const response = await fetch(`/api/swatches/${swatch.data.id}/color-model/${paletteId}`);
             const result = await response.json();
 
+            console.log(`Response for swatch ${swatch.data.id}:`, result);
+
             if (result.status === 'success' && result.data) {
               // Update the swatch with the formula for this specific palette
-              swatchPlaceholders[i] = {
-                ...swatchPlaceholders[i],
+              swatchPlaceholders[index] = {
+                ...swatchPlaceholders[index],
                 data: {
-                  ...swatchPlaceholders[i].data,
+                  ...swatchPlaceholders[index].data,
                   [paletteKey]: result.data.formula
+                }
+              };
+              console.log(`Updated swatch ${index} with formula:`, result.data.formula);
+            } else {
+              console.error(`Failed to get formula for swatch ${swatch.data.id}:`, result);
+              // Set as "No mix data" instead of leaving it loading
+              swatchPlaceholders[index] = {
+                ...swatchPlaceholders[index],
+                data: {
+                  ...swatchPlaceholders[index].data,
+                  [paletteKey]: 'No mix data'
                 }
               };
             }
           } catch (error) {
             console.error(`Error fetching palette formula for swatch ${swatch.data.id}:`, error);
+            // Set error message instead of leaving it loading
+            swatchPlaceholders[index] = {
+              ...swatchPlaceholders[index],
+              data: {
+                ...swatchPlaceholders[index].data,
+                [paletteKey]: 'Error loading'
+              }
+            };
           }
-        }
-      }
+        })();
+      });
+
+      // Wait for this batch to complete before starting the next
+      await Promise.all(batchPromises);
+      console.log(`Completed batch ${Math.floor(batchStart / BATCH_SIZE) + 1} of ${Math.ceil(swatchesToFetch.length / BATCH_SIZE)}`);
     }
+
+    console.log(`Finished fetching formulas for palette ${paletteId}`);
   }
 
   async function updateSwatch(hexColor, red, green, blue, desc, posX, posY, sampleX, sampleY, imageId) {
