@@ -2886,6 +2886,8 @@
                 <p class="font-mono" style="font-size: 8pt; color: #666; line-height: 1.5; margin: 0; padding: 0;">
                   {colorFormat === 'RGB'
                     ? `RGB(${swatch.data.red}, ${swatch.data.green}, ${swatch.data.blue})`
+                    : colorFormat === 'OIL'
+                    ? (swatch.data.oilPaintFormula || 'No mix data')
                     : swatch.data.cmyk
                   }
                 </p>

@@ -1,0 +1,476 @@
+body {
+  margin: 0;
+  padding: 0;
+  font-family: Arial, sans-serif;
+}
+/* Header */
+#header {
+  background-color: #f0f0f0;
+  padding: 10px 20px;
+  display: flex;
+  align-items: center;
+  position: sticky;
+  top: 0;
+  z-index: 1000;
+}
+#header h1 {
+  margin: 0;
+  flex: 1;
+}
+#controls {
+  display: flex;
+  align-items: center;
+  gap: 15px;
+}
+#controls label {
+  margin-right: 5px;
+}
+#save-swatches-button,
+#upload-image-link {
+  padding: 8px 16px;
+  font-size: 16px;
+  cursor: pointer;
+  background-color: #34A853;
+  color: #fff;
+  border: none;
+  border-radius: 4px;
+  transition: background-color 0.3s ease;
+  text-decoration: none;
+}
+#save-swatches-button:hover,
+#upload-image-link:hover {
+  background-color: #2C8E46;
+}
+#upload-image-link {
+  background-color: #4285F4;
+}
+#upload-image-link:hover {
+  background-color: #3367D6;
+}
+/* Main Content */
+#main-content {
+  padding: 20px;
+}
+#content-wrapper {
+  display: flex;
+  flex-direction: column;
+  align-items: center; /* Center horizontally */
+  padding: 20px;
+  box-sizing: border-box;
+}
+#image-container {
+  position: relative;
+  margin-bottom: 20px; /* Space between image and swatches */
+  background-color: #f0f0f0; /* Light grey background */
+  width: 100%; /* Ensure it takes up full width */
+  height: auto; /* Adjust as needed */
+  min-height: 300px; /* Minimum height to show the placeholder */
+}
+#imageCanvas {
+  cursor: crosshair;
+  display: block;
+  position: relative;
+  max-width: 100%;
+  height: auto;
+}
+#overlayCanvas {
+  position: absolute;
+  top: 0;
+  left: 0;
+  cursor: crosshair;
+  pointer-events: none;
+}
+#color-preview {
+  width: 60px;
+  height: 60px;
+  border-radius: 50%;
+  position: absolute;
+  pointer-events: none;
+  border: 4px solid #000;
+  box-shadow: inset 0 0 5px rgba(0,0,0,0.2);
+  transform: translate(-50%, -50%);
+  display: none;
+}
+#color-preview::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 60px;
+  height: 60px;
+  border-radius: 50%;
+  background: radial-gradient(circle at 15% 15%, rgba(255,255,255,0.7), rgba(255,255,255,0) 30%);
+}
+.swatch {
+  width: 180px; /* Adjust as needed for overall swatch size */
+  height: 90px; /* Adjust as needed for overall swatch size */
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+  border: 1px solid #ccc;
+  border-radius: 8px;
+  overflow: hidden;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  transition: transform 0.2s, opacity 0.5s ease; /* Added opacity transition */
+  padding: 10px; /* Added padding around the swatch */
+  margin-top: 10px; /* Added margin above each swatch */
+}
+
+.swatch:hover {
+  transform: scale(1.05);
+}
+
+/* Swatch Color Block */
+.swatch-color {
+  width: 160px; /* Fixed size for color block */
+  height: 80px; /* Fixed size for color block */
+  border-radius: 4px;
+  margin-bottom: 5px;
+}
+
+/* Swatch Title */
+.swatch-title {
+  text-align: center;
+  font-size: 12px;
+  margin: 2px 0;
+  font-weight: bold;
+  color: #333; /* Dark grey for the title */
+}
+
+/* Swatch Info */
+.swatch-info {
+  text-align: center;
+  font-size: 12px;
+  margin: 2px 0;
+  font-weight: normal; /* Not bold for the info */
+  color: #888; /* Lighter color for the info */
+}
+
+/* Delete Button Styles */
+.swatch-delete {
+  position: absolute;
+  top: 5px;
+  right: 5px;
+  background-color: rgba(255, 0, 0, 0.7);
+  border: none;
+  border-radius: 50%;
+  width: 20px; /* Smaller size */
+  height: 20px; /* Smaller size */
+  color: #fff;
+  font-size: 12px; /* Smaller icon size */
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity 0.3s ease, background-color 0.3s ease;
+}
+
+.swatch:hover .swatch-delete {
+  opacity: 1;
+}
+
+.swatch-delete:hover {
+  background-color: #cc0000; /* More professional red on hover */
+}
+/* Modal Styles */
+#modal {
+  display: none;
+  position: fixed;
+  z-index: 10;
+  left: 0;
+  top: 0;
+  width: 100%;
+  height: 100%;
+  overflow: auto;
+  background-color: rgba(0,0,0,0.5);
+}
+#modal-content {
+  background-color: #fff;
+  margin: 5% auto;
+  padding: 30px;
+  border-radius: 10px;
+  border: 1px solid #ccc;
+  width: 400px;
+  max-width: 90%;
+  box-sizing: border-box;
+  position: relative;
+  box-shadow: 0 5px 15px rgba(0,0,0,0.3);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+#modal-close {
+  color: #aaa;
+  position: absolute;
+  top: 10px;
+  right: 15px;
+  font-size: 28px;
+  font-weight: bold;
+  cursor: pointer;
+}
+#modal-close:hover,
+#modal-close:focus {
+  color: #000;
+  text-decoration: none;
+  cursor: pointer;
+}
+#modal h2 {
+  margin-top: 0;
+  margin-bottom: 20px;
+  text-align: center;
+  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+}
+#selected-color {
+  width: 80px; /* Increased size */
+  height: 80px; /* Increased size */
+  margin-right: 10px; /* Reduced space between swatch and color values */
+  border: 1px solid #888;
+  border-radius: 4px;
+  box-shadow: inset 0 0 5px rgba(0,0,0,0.1);
+}
+#modal-form {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  width: 100%;
+}
+#modal-input {
+  width: 100%;
+  padding: 12px 20px;
+  margin-bottom: 15px;
+  box-sizing: border-box;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+  font-size: 16px;
+}
+#modal-button {
+  width: 100%;
+  padding: 12px 20px;
+  background-color: #4285f4;
+  color: #fff;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 16px;
+  transition: background-color 0.3s ease;
+}
+#modal-button:hover {
+  background-color: #357ae8;
+}
+/* Print Styles */
+@media print {
+  body {
+    color: #000;
+  }
+  .swatch {
+    background-color: #fff !important;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+  .swatch-color {
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+  #header, #controls, #save-swatches-button {
+    display: none;
+  }
+}
+
+/* Styles for upload image page */
+.image-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: 20px;
+  padding: 20px;
+}
+
+.image-item {
+  position: relative;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+.image-item img {
+  width: 100%;
+  height: auto;
+  display: block;
+}
+
+.delete-form {
+  position: absolute;
+  bottom: 10px;
+  right: 10px;
+}
+
+.delete-button {
+  background-color: #ff4444;
+  color: white;
+  border: none;
+  padding: 5px 10px;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: background-color 0.3s ease;
+}
+
+.delete-button:hover {
+  background-color: #cc0000;
+}
+
+#color-picker-link {
+  padding: 8px 16px;
+  font-size: 16px;
+  cursor: pointer;
+  background-color: #4285F4;
+  color: #fff;
+  border: none;
+  border-radius: 4px;
+  transition: background-color 0.3s ease;
+  text-decoration: none;
+}
+
+#color-picker-link:hover {
+  background-color: #3367D6;
+}
+
+/* Material Design 3 Button */
+.md3-button {
+  font-family: 'Roboto', sans-serif;
+  font-size: 14px;
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 1.25px;
+  padding: 10px 24px;
+  border-radius: 100px;
+  background-color: #6200ee;
+  color: #ffffff;
+  border: none;
+  cursor: pointer;
+  transition: background-color 0.2s, box-shadow 0.2s;
+  box-shadow: 0 3px 1px -2px rgba(0,0,0,0.2), 0 2px 2px 0 rgba(0,0,0,0.14), 0 1px 5px 0 rgba(0,0,0,0.12);
+}
+
+.md3-button:hover {
+  background-color: #3700b3;
+  box-shadow: 0 2px 4px -1px rgba(0,0,0,0.2), 0 4px 5px 0 rgba(0,0,0,0.14), 0 1px 10px 0 rgba(0,0,0,0.12);
+}
+
+/* Modal Styles */
+.modal {
+  display: none;
+  position: fixed;
+  z-index: 1000;
+  left: 0;
+  top: 0;
+  width: 100%;
+  height: 100%;
+  background-color: rgba(0,0,0,0.4);
+}
+
+.modal-content {
+  background-color: #fefefe;
+  margin: 15% auto;
+  padding: 20px;
+  border: 1px solid #888;
+  width: 80%;
+  max-width: 500px;
+  border-radius: 8px;
+}
+
+/* Placeholder Thumbnail */
+.placeholder-thumbnail {
+  position: relative;
+  width: 200px;
+  height: 150px;
+  background-color: #f0f0f0;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  overflow: hidden;
+}
+
+.placeholder-thumbnail::after {
+  content: '';
+  position: absolute;
+  width: 40px;
+  height: 40px;
+  border: 4px solid #6200ee;
+  border-top: 4px solid transparent;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+/* Swatch Container Styles */
+#swatch-container {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px; /* Space between swatches */
+  justify-content: center; /* Center swatches horizontally */
+  width: 100%;
+  max-width: 800px; /* Adjust as needed */
+  padding: 20px; /* Added padding around the swatch container */
+}
+
+/* Optional: Responsive Adjustments */
+@media (max-width: 600px) {
+  .swatch {
+    width: 80px;
+    height: 80px;
+  }
+
+  .swatch-delete {
+    width: 16px;
+    height: 16px;
+    font-size: 12px;
+    line-height: 16px;
+  }
+
+  #swatch-container {
+    max-width: 100%;
+  }
+}
+
+#color-values {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+}
+
+#color-values div {
+  margin: 2px 0; /* Reduced space between color values */
+  font-size: 14px;
+  color: #333;
+}
+
+#modal-body {
+  display: flex;
+  align-items: center;
+  justify-content: flex-start; /* Align items to the start */
+  margin-bottom: 15px;
+}
+
+#loading-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background-color: rgba(240, 240, 240, 0.9); /* Light grey with slight transparency */
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 10; /* Ensure it is above the canvas */
+}
+
+#loading-overlay i {
+  font-size: 48px; /* Large spinner icon */
+  color: #888; /* Grey color for the spinner */
+}

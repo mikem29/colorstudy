@@ -325,8 +325,9 @@
           <select bind:value={colorFormat} class="w-full px-3 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
             <option value="RGB">RGB</option>
             <option value="CMYK">CMYK</option>
+            <option value="OIL">Oil Paint Mix</option>
           </select>
-          <p class="text-xs text-gray-500">Choose between RGB and CMYK color formats</p>
+          <p class="text-xs text-gray-500">Choose color format: RGB, CMYK, or Oil Paint mixing formula</p>
         </div>
 
         <!-- Show Connection Lines -->
@@ -374,6 +375,8 @@
                 <p class="text-xs font-mono text-gray-600">
                   {colorFormat === 'RGB'
                     ? `RGB(${selectedSwatch.red}, ${selectedSwatch.green}, ${selectedSwatch.blue})`
+                    : colorFormat === 'OIL'
+                    ? (selectedSwatch.oilPaintFormula || 'Generating mix database...')
                     : selectedSwatch.cmyk
                   }
                 </p>
