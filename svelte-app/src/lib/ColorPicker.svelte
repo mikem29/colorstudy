@@ -16,6 +16,8 @@
     showColorFormatOnSwatch = true,
     samplingSize: propSamplingSize = 1,
     colorFormat: propColorFormat = 'RGB',
+    selectedPaletteId: propSelectedPaletteId = null,
+    colorPalettes: propColorPalettes = [],
     onSwatchCreated,
     onImageUpload,
     onSwatchClick
@@ -127,6 +129,8 @@
 
   let samplingSize = $state(propSamplingSize);
   let colorFormat = $state(propColorFormat);
+  let selectedPaletteId = $state(propSelectedPaletteId);
+  let colorPalettes = $state(propColorPalettes);
 
   // Update internal state when props change
   $effect(() => {
@@ -137,6 +141,14 @@
     colorFormat = propColorFormat;
   });
 
+  $effect(() => {
+    selectedPaletteId = propSelectedPaletteId;
+  });
+
+  $effect(() => {
+    colorPalettes = propColorPalettes;
+  });
+
   // Track changes to swatchPlaceholders
   $effect(() => {
     if (swatchPlaceholders.length > 0) {
@@ -145,6 +157,14 @@
       if (firstLineColor === undefined && swatchPlaceholders[0]?.filled) {
         console.trace('WARNING: lineColor became undefined! Stack trace:');
       }
+    }
+  });
+
+  // Fetch paint formulas on-demand when user selects a palette
+  $effect(() => {
+    if (colorFormat.startsWith('PALETTE_')) {
+      const paletteId = parseInt(colorFormat.replace('PALETTE_', ''));
+      fetchPaletteFormulas(paletteId);
     }
   });
 
@@ -1539,7 +1559,8 @@
           sampleY: parseFloat(swatch.sample_y) || 0,
           sampleSize: swatch.sample_size || 1,
           imageId: swatch.image_id,
-          lineColor: swatch.line_color || '#000000'
+          lineColor: swatch.line_color || '#000000',
+          oilPaintFormula: null // Will be loaded on-demand
         }
       };
       });
@@ -1735,6 +1756,36 @@
     }
   }
 
+  async function fetchPaletteFormulas(paletteId) {
+    // Fetch paint formulas for all swatches that don't have them yet for this palette
+    for (let i = 0; i < swatchPlaceholders.length; i++) {
+      const swatch = swatchPlaceholders[i];
+      if (swatch.filled && swatch.data.id) {
+        // Check if we already have a formula for this palette
+        const paletteKey = `palette_${paletteId}`;
+        if (!swatch.data[paletteKey]) {
+          try {
+            const response = await fetch(`/api/swatches/${swatch.data.id}/color-model/${paletteId}`);
+            const result = await response.json();
+
+            if (result.status === 'success' && result.data) {
+              // Update the swatch with the formula for this specific palette
+              swatchPlaceholders[i] = {
+                ...swatchPlaceholders[i],
+                data: {
+                  ...swatchPlaceholders[i].data,
+                  [paletteKey]: result.data.formula
+                }
+              };
+            }
+          } catch (error) {
+            console.error(`Error fetching palette formula for swatch ${swatch.data.id}:`, error);
+          }
+        }
+      }
+    }
+  }
+
   async function updateSwatch(hexColor, red, green, blue, desc, posX, posY, sampleX, sampleY, imageId) {
     // Expand array if we've reached the current limit
     if (swatchIndex >= swatchPlaceholders.length) {
@@ -1801,18 +1852,19 @@
 
       const result = await response.json();
 
-      if (result.status === 'success' && result.inserted_ids && result.inserted_ids.length > 0) {
-        // Update the swatch with the returned ID - create new object for reactivity
-        const insertedId = result.inserted_ids[0];
+      if (result.status === 'success' && result.swatches && result.swatches.length > 0) {
+        // Update the swatch with the ID from server
+        const savedSwatch = result.swatches[0];
         const targetIndex = swatchIndex - 1;
         swatchPlaceholders[targetIndex] = {
           ...swatchPlaceholders[targetIndex],
           data: {
             ...swatchPlaceholders[targetIndex].data,
-            id: insertedId
+            id: savedSwatch.id,
+            oilPaintFormula: null // Will be fetched on-demand when user selects Oil Paint format
           }
         };
-        console.log('Swatch saved with ID:', insertedId);
+        console.log('Swatch saved with ID:', savedSwatch.id);
       } else if (result.status !== 'success') {
         console.error('Failed to save swatch:', result.message);
       }
@@ -2884,12 +2936,18 @@
             {#if showColorFormatOnSwatch}
               <div style="padding: 0 0.05in 0.01in 0.05in;">
                 <p class="font-mono" style="font-size: 8pt; color: #666; line-height: 1.5; margin: 0; padding: 0;">
-                  {colorFormat === 'RGB'
-                    ? `RGB(${swatch.data.red}, ${swatch.data.green}, ${swatch.data.blue})`
-                    : colorFormat === 'OIL'
-                    ? (swatch.data.oilPaintFormula || 'No mix data')
-                    : swatch.data.cmyk
-                  }
+                  {(() => {
+                    if (colorFormat === 'RGB') {
+                      return `RGB(${swatch.data.red}, ${swatch.data.green}, ${swatch.data.blue})`;
+                    } else if (colorFormat === 'CMYK') {
+                      return swatch.data.cmyk;
+                    } else if (colorFormat.startsWith('PALETTE_')) {
+                      const paletteId = colorFormat.replace('PALETTE_', '');
+                      const paletteKey = `palette_${paletteId}`;
+                      return swatch.data[paletteKey] || 'Loading...';
+                    }
+                    return '';
+                  })()}
                 </p>
               </div>
             {/if}

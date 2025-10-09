@@ -2,6 +2,8 @@
   import { onMount } from 'svelte';
 
   let pigments = [];
+  let colorPalettes = [];
+  let selectedPaletteId = null;
   let selectedPigments = {};
   let loading = true;
   let virtualMixColor = '#ffffff';
@@ -14,8 +16,32 @@
   let generationStats = { generated: 0, total: 0 };
 
   onMount(async () => {
+    await loadPalettes();
     await loadPigments();
+
+    // Check for palette query parameter
+    const urlParams = new URLSearchParams(window.location.search);
+    const paletteParam = urlParams.get('palette');
+    if (paletteParam) {
+      selectedPaletteId = parseInt(paletteParam);
+    }
   });
+
+  async function loadPalettes() {
+    try {
+      const response = await fetch('/api/palettes/color-palettes');
+      const result = await response.json();
+      if (result.status === 'success') {
+        colorPalettes = result.data;
+        // Select first palette by default
+        if (colorPalettes.length > 0) {
+          selectedPaletteId = colorPalettes[0].id;
+        }
+      }
+    } catch (err) {
+      console.error('Error loading palettes:', err);
+    }
+  }
 
   async function loadPigments() {
     try {
@@ -30,6 +56,11 @@
       loading = false;
     }
   }
+
+  // Filter pigments by selected palette
+  $: filteredPigments = selectedPaletteId
+    ? pigments.filter(p => p.palette_id === selectedPaletteId)
+    : pigments;
 
   function handleSliderChange(pigmentId, value, pigment) {
     if (value > 0) {
@@ -303,21 +334,39 @@
   <!-- Main Content -->
   <div class="flex-1 overflow-auto p-6">
     <div class="max-w-7xl mx-auto">
-      <div class="flex justify-between items-center mb-6">
-        <h1 class="text-2xl font-bold text-gray-900">Pigment Mixer</h1>
-        <button
-          on:click={generateAllMixes}
-          disabled={isGenerating}
-          class="bg-green-600 text-white px-4 py-2 rounded-md hover:bg-green-700 disabled:bg-gray-400 disabled:cursor-not-allowed flex items-center gap-2"
-        >
-          {#if isGenerating}
-            <i class="fas fa-spinner fa-spin"></i>
-            Generating... {generationProgress.toFixed(1)}%
-          {:else}
-            <i class="fas fa-magic"></i>
-            Generate All Mixes
-          {/if}
-        </button>
+      <div class="mb-6">
+        <div class="flex justify-between items-center mb-4">
+          <h1 class="text-2xl font-bold text-gray-900">Pigment Mixer</h1>
+          <button
+            on:click={generateAllMixes}
+            disabled={isGenerating}
+            class="bg-green-600 text-white px-4 py-2 rounded-md hover:bg-green-700 disabled:bg-gray-400 disabled:cursor-not-allowed flex items-center gap-2"
+          >
+            {#if isGenerating}
+              <i class="fas fa-spinner fa-spin"></i>
+              Generating... {generationProgress.toFixed(1)}%
+            {:else}
+              <i class="fas fa-magic"></i>
+              Generate All Mixes
+            {/if}
+          </button>
+        </div>
+
+        <!-- Palette Selector -->
+        <div class="flex items-center gap-4">
+          <label class="text-sm font-medium text-gray-700">Color Palette:</label>
+          <select
+            bind:value={selectedPaletteId}
+            on:change={() => selectedPigments = {}}
+            class="px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
+          >
+            {#each colorPalettes as palette}
+              <option value={palette.id}>
+                {palette.name} ({palette.pigment_count} pigments, {palette.mix_count} mixes)
+              </option>
+            {/each}
+          </select>
+        </div>
       </div>
 
       {#if isGenerating}
@@ -336,18 +385,18 @@
         <div class="flex items-center justify-center p-12">
           <i class="fas fa-spinner fa-spin text-4xl text-indigo-600"></i>
         </div>
-      {:else if pigments.length === 0}
+      {:else if filteredPigments.length === 0}
         <div class="text-center p-12">
           <i class="fas fa-palette text-6xl text-gray-300 mb-4"></i>
-          <p class="text-gray-600 mb-4">No pigments yet.</p>
+          <p class="text-gray-600 mb-4">No pigments in this palette yet.</p>
           <a href="/pigments/add" class="text-indigo-600 hover:text-indigo-700">
             <i class="fas fa-plus mr-1"></i>
-            Add your first pigment
+            Add pigments to this palette
           </a>
         </div>
       {:else}
         <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
-          {#each pigments as pigment}
+          {#each filteredPigments as pigment}
             <div class="border border-gray-200 rounded-lg shadow-sm p-4 flex flex-col items-center">
               <!-- Color Swatch -->
               <div class="w-full h-16 rounded mb-3" style="background-color: {pigment.color_hex};"></div>

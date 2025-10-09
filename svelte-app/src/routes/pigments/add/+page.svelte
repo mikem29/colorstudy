@@ -1,6 +1,8 @@
 <script>
   import { goto } from '$app/navigation';
+  import { onMount } from 'svelte';
 
+  let colorPalettes = [];
   let formData = {
     name: '',
     color_hex: '#FFFFFF',
@@ -8,11 +10,32 @@
     g: 255,
     b: 255,
     type: 'Base',
-    description: ''
+    description: '',
+    palette_id: null
   };
 
   let successMessage = '';
   let errorMessage = '';
+
+  onMount(async () => {
+    await loadPalettes();
+  });
+
+  async function loadPalettes() {
+    try {
+      const response = await fetch('/api/palettes/color-palettes');
+      const result = await response.json();
+      if (result.status === 'success') {
+        colorPalettes = result.data;
+        // Select first palette by default
+        if (colorPalettes.length > 0) {
+          formData.palette_id = colorPalettes[0].id;
+        }
+      }
+    } catch (err) {
+      console.error('Error loading palettes:', err);
+    }
+  }
 
   function hexToRgb(hex) {
     hex = hex.replace(/^#/, '');
@@ -66,7 +89,8 @@
 
       if (result.status === 'success') {
         successMessage = result.message;
-        // Reset form
+        // Reset form but keep palette selection
+        const currentPaletteId = formData.palette_id;
         formData = {
           name: '',
           color_hex: '#FFFFFF',
@@ -74,7 +98,8 @@
           g: 255,
           b: 255,
           type: 'Base',
-          description: ''
+          description: '',
+          palette_id: currentPaletteId
         };
 
         // Redirect to mixer after 1.5 seconds
@@ -116,6 +141,25 @@
   </div>
 
   <form on:submit|preventDefault={handleSubmit} class="space-y-4">
+    <div>
+      <label for="palette" class="block text-sm font-medium text-gray-700 mb-1">
+        Color Palette <span class="text-red-500">*</span>
+      </label>
+      <select
+        id="palette"
+        bind:value={formData.palette_id}
+        required
+        class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
+      >
+        {#each colorPalettes as palette}
+          <option value={palette.id}>
+            {palette.name} ({palette.pigment_count} pigments)
+          </option>
+        {/each}
+      </select>
+      <p class="text-xs text-gray-500 mt-1">Select which paint palette this pigment belongs to</p>
+    </div>
+
     <div>
       <label for="name" class="block text-sm font-medium text-gray-700 mb-1">
         Pigment Name <span class="text-red-500">*</span>

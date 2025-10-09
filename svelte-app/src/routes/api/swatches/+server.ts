@@ -22,10 +22,11 @@ export const POST: RequestHandler = async ({ request, locals }) => {
     try {
       await connection.beginTransaction();
 
-      const stmt = `INSERT INTO swatches (hex_color, red, green, blue, cmyk, oil_paint_formula, description, image_id, pos_x, pos_y, sample_x, sample_y, sample_size, line_color, user_id)
-                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`;
+      const stmt = `INSERT INTO swatches (hex_color, red, green, blue, cmyk, description, image_id, pos_x, pos_y, sample_x, sample_y, sample_size, line_color, user_id)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`;
 
       const insertedIds = [];
+      const savedSwatches = [];
 
       for (const swatch of swatchData) {
         if (
@@ -38,53 +39,12 @@ export const POST: RequestHandler = async ({ request, locals }) => {
           return json({ status: 'error', message: 'Invalid input data in one or more swatches.' }, { status: 400 });
         }
 
-        // Try to find closest oil paint mix
-        let oilPaintFormula = null;
-        try {
-          const [mixRows] = await connection.execute(
-            `SELECT
-              pm.mix_id,
-              pm.final_rgb,
-              SQRT(
-                POW(SUBSTRING_INDEX(pm.final_rgb, ',', 1) - ?, 2) +
-                POW(SUBSTRING_INDEX(SUBSTRING_INDEX(pm.final_rgb, ',', 2), ',', -1) - ?, 2) +
-                POW(SUBSTRING_INDEX(pm.final_rgb, ',', -1) - ?, 2)
-              ) as distance
-            FROM pigment_mixes pm
-            WHERE pm.type = 'virtual'
-            ORDER BY distance ASC
-            LIMIT 1`,
-            [swatch.red, swatch.green, swatch.blue]
-          );
-
-          if ((mixRows as any[]).length > 0) {
-            const closestMix = (mixRows as any[])[0];
-            const [details] = await connection.execute(
-              `SELECT p.name, pmd.parts, pmd.percentage
-               FROM pigment_mix_details pmd
-               JOIN pigments p ON pmd.pigment_id = p.pigment_id
-               WHERE pmd.mix_id = ?
-               ORDER BY pmd.parts DESC`,
-              [closestMix.mix_id]
-            );
-
-            if ((details as any[]).length > 0) {
-              oilPaintFormula = (details as any[])
-                .map(d => `${d.parts} ${d.parts === 1 ? 'part' : 'parts'} ${d.name}`)
-                .join(' + ');
-            }
-          }
-        } catch (mixError) {
-          console.log('Could not find oil paint mix, continuing without it');
-        }
-
         const [result] = await connection.execute(stmt, [
           swatch.hex_color,
           swatch.red,
           swatch.green,
           swatch.blue,
           swatch.cmyk || '',
-          oilPaintFormula,
           swatch.description || '',
           swatch.image_id || null,
           swatch.pos_x || 0,
@@ -96,12 +56,31 @@ export const POST: RequestHandler = async ({ request, locals }) => {
           locals.user.id // Associate with logged-in user
         ]);
 
-        insertedIds.push((result as any).insertId);
+        const insertedId = (result as any).insertId;
+        insertedIds.push(insertedId);
+
+        // Return complete swatch data for frontend
+        savedSwatches.push({
+          id: insertedId,
+          hex_color: swatch.hex_color,
+          red: swatch.red,
+          green: swatch.green,
+          blue: swatch.blue,
+          cmyk: swatch.cmyk || '',
+          description: swatch.description || '',
+          image_id: swatch.image_id || null,
+          pos_x: swatch.pos_x || 0,
+          pos_y: swatch.pos_y || 0,
+          sample_x: swatch.sample_x || 0,
+          sample_y: swatch.sample_y || 0,
+          sample_size: swatch.sample_size || 1,
+          line_color: swatch.line_color || '#000000'
+        });
       }
 
       await connection.commit();
 
-      return json({ status: 'success', message: 'Swatches saved successfully.', inserted_ids: insertedIds });
+      return json({ status: 'success', message: 'Swatches saved successfully.', inserted_ids: insertedIds, swatches: savedSwatches });
     } catch (dbError) {
       await connection.rollback();
       console.error('Database error:', dbError);

@@ -15,6 +15,8 @@
   let showColorFormatOnSwatch = true;
   let samplingSize = 1;
   let colorFormat = 'RGB';
+  let colorPalettes = [];
+  let selectedPaletteId = null;
   let selectedSwatch = null;
   let selectedSwatchIndex = -1;
   let swatchLabelInput = '';
@@ -26,6 +28,7 @@
   onMount(() => {
     loadArtboard();
     loadPreferences();
+    loadColorPalettes();
   });
 
   async function loadPreferences() {
@@ -38,6 +41,22 @@
       }
     } catch (error) {
       console.error('Error loading preferences:', error);
+    }
+  }
+
+  async function loadColorPalettes() {
+    try {
+      const response = await fetch('/api/palettes/color-palettes');
+      const result = await response.json();
+      if (result.status === 'success') {
+        colorPalettes = result.data;
+        // Set first palette as default if available
+        if (colorPalettes.length > 0) {
+          selectedPaletteId = colorPalettes[0].id;
+        }
+      }
+    } catch (error) {
+      console.error('Error loading color palettes:', error);
     }
   }
 
@@ -274,6 +293,8 @@
         {showColorFormatOnSwatch}
         {samplingSize}
         {colorFormat}
+        {selectedPaletteId}
+        {colorPalettes}
         onSwatchCreated={handleSwatchCreated}
         onImageUpload={handleFileUpload}
         onSwatchClick={handleSwatchClick}
@@ -325,9 +346,13 @@
           <select bind:value={colorFormat} class="w-full px-3 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
             <option value="RGB">RGB</option>
             <option value="CMYK">CMYK</option>
-            <option value="OIL">Oil Paint Mix</option>
+            <optgroup label="Paint Palettes">
+              {#each colorPalettes as palette}
+                <option value="PALETTE_{palette.id}">{palette.name} ({palette.pigment_count} colors, {palette.mix_count} mixes)</option>
+              {/each}
+            </optgroup>
           </select>
-          <p class="text-xs text-gray-500">Choose color format: RGB, CMYK, or Oil Paint mixing formula</p>
+          <p class="text-xs text-gray-500">Choose color format or paint palette</p>
         </div>
 
         <!-- Show Connection Lines -->
