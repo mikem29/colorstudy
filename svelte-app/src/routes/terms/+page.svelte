@@ -1,5 +1,19 @@
+<script>
+  import Footer from '$lib/components/Footer.svelte';
+</script>
+
 <svelte:head>
   <title>Terms of Service - HueMixy</title>
+
+  <!-- Google tag (gtag.js) -->
+  <script async src="https://www.googletagmanager.com/gtag/js?id=AW-306485116"></script>
+  <script>
+    window.dataLayer = window.dataLayer || [];
+    function gtag(){dataLayer.push(arguments);}
+    gtag('js', new Date());
+
+    gtag('config', 'AW-306485116');
+  </script>
 </svelte:head>
 
 <div class="min-h-screen bg-gradient-to-br from-blue-50 via-white to-purple-50">
@@ -119,4 +133,6 @@
       </div>
     </div>
   </main>
+
+  <Footer />
 </div>

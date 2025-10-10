@@ -1,6 +1,20 @@
+<script>
+  import Footer from '$lib/components/Footer.svelte';
+</script>
+
 <svelte:head>
   <title>Pricing - HueMixy</title>
   <meta name="description" content="Simple, transparent pricing. Start free with 5 artboards. Upgrade to Pro for unlimited artboards at $2/month or $17/year." />
+
+  <!-- Google tag (gtag.js) -->
+  <script async src="https://www.googletagmanager.com/gtag/js?id=AW-306485116"></script>
+  <script>
+    window.dataLayer = window.dataLayer || [];
+    function gtag(){dataLayer.push(arguments);}
+    gtag('js', new Date());
+
+    gtag('config', 'AW-306485116');
+  </script>
 </svelte:head>
 
 <div class="min-h-screen bg-gradient-to-br from-blue-50 via-white to-purple-50">
@@ -128,4 +142,6 @@
       </div>
     </div>
   </main>
+
+  <Footer />
 </div>
