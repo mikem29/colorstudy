@@ -7,6 +7,17 @@
   $: showNav = !$page.url.pathname.includes('/artboard/') && !$page.url.pathname.includes('/dashboard');
 </script>
 
+<svelte:head>
+  <!-- Google tag (gtag.js) -->
+  <script async src="https://www.googletagmanager.com/gtag/js?id=AW-306485116"></script>
+  <script>
+    window.dataLayer = window.dataLayer || [];
+    function gtag(){dataLayer.push(arguments);}
+    gtag('js', new Date());
+    gtag('config', 'AW-306485116');
+  </script>
+</svelte:head>
+
 <div class="min-h-screen bg-gray-50">
   {#if showNav}
     <nav class="bg-white shadow-sm border-b">

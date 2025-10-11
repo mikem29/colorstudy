@@ -5,16 +5,6 @@
 <svelte:head>
   <title>HueMixy - Create Color Swatches from Any Image</title>
   <meta name="description" content="Extract color swatches from photos and images. Click to sample colors, organize them beautifully, and print at any size. Perfect for designers, artists, and hobbyists." />
-
-  <!-- Google tag (gtag.js) -->
-  <script async src="https://www.googletagmanager.com/gtag/js?id=AW-306485116"></script>
-  <script>
-    window.dataLayer = window.dataLayer || [];
-    function gtag(){dataLayer.push(arguments);}
-    gtag('js', new Date());
-
-    gtag('config', 'AW-306485116');
-  </script>
 </svelte:head>
 
 <!-- Hero Section -->

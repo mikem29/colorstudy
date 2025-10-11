@@ -1,6 +1,7 @@
 <script>
   import { onMount } from 'svelte';
   import { goto } from '$app/navigation';
+  import { page } from '$app/stores';
 
   let artboards = $state([]);
   let showCreateModal = $state(false);
@@ -144,6 +145,24 @@
 
   onMount(() => {
     loadArtboards();
+
+    // Track signup conversion if user just signed up
+    const isNewSignup = $page.url.searchParams.get('signup') === 'success';
+    if (isNewSignup) {
+      // Send conversion event to Google Ads
+      if (typeof gtag !== 'undefined') {
+        gtag('event', 'conversion', {
+          'send_to': 'AW-306485116/pKhUCOPqoqsbEPyukpIB',
+          'value': 1.0,
+          'currency': 'USD'
+        });
+      }
+
+      // Clean up the URL without reloading
+      const url = new URL(window.location.href);
+      url.searchParams.delete('signup');
+      window.history.replaceState({}, '', url);
+    }
   });
 </script>
 
