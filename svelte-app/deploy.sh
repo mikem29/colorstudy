@@ -23,7 +23,7 @@ echo "📦 Creating deployment archive..."
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 
 # Create compressed archive including production config
-tar czf build.tar.gz build/ package.json package-lock.json ecosystem.config.cjs nginx-huemixy.conf mysql/ migrations/ run-migrations.js 2>/dev/null || tar czf build.tar.gz build/ package.json package-lock.json ecosystem.config.cjs nginx-huemixy.conf mysql/ migrations/ run-migrations.js
+tar czf build.tar.gz build/ package.json package-lock.json ecosystem.config.cjs nginx-huemixy.conf mysql/ migrations/ run-migrations.js scripts/ 2>/dev/null || tar czf build.tar.gz build/ package.json package-lock.json ecosystem.config.cjs nginx-huemixy.conf mysql/ migrations/ run-migrations.js scripts/
 echo "✅ Archive created: build.tar.gz"
 
 # Get file size for progress indication

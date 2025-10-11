@@ -22,6 +22,10 @@
   let saveTimeout = null;
   let generatingPDF = false;
   let artboardId = '';
+  let showColorMixes = false;
+  let mixingQueue = [];
+  let mixingPollInterval = null;
+  let mixingNotification = { show: false, message: '', type: 'info' };
 
   onMount(() => {
     artboardId = $page.params.id;
@@ -29,6 +33,25 @@
     loadPreferences();
     loadColorPalettes();
     checkMixesAvailable();
+    loadMixingQueue();
+
+    // Poll for mixing queue updates every 5 seconds
+    mixingPollInterval = setInterval(async () => {
+      await loadMixingQueue();
+      // If any queue entry is processing, keep polling. Otherwise stop.
+      const hasProcessing = mixingQueue.some(q => q.status === 'processing' || q.status === 'pending');
+      if (!hasProcessing && mixingPollInterval) {
+        clearInterval(mixingPollInterval);
+        mixingPollInterval = null;
+      }
+    }, 5000);
+
+    // Cleanup on unmount
+    return () => {
+      if (mixingPollInterval) {
+        clearInterval(mixingPollInterval);
+      }
+    };
   });
 
   async function loadPreferences() {
@@ -71,6 +94,70 @@
       console.error('Error checking mixes:', error);
       hasMixes = false;
     }
+  }
+
+  async function loadMixingQueue() {
+    try {
+      const response = await fetch(`/api/artboards/${artboardId}/queue-palette-mixing`);
+      const result = await response.json();
+      if (result.status === 'success') {
+        mixingQueue = result.data;
+      }
+    } catch (error) {
+      console.error('Error loading mixing queue:', error);
+    }
+  }
+
+  function showMixingNotification(message, type = 'info') {
+    mixingNotification = { show: true, message, type };
+    setTimeout(() => {
+      mixingNotification = { show: false, message: '', type: 'info' };
+    }, 5000);
+  }
+
+  async function queuePaletteMixing(paletteId) {
+    try {
+      const response = await fetch(`/api/artboards/${artboardId}/queue-palette-mixing`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ palette_id: paletteId })
+      });
+
+      const result = await response.json();
+
+      // Handle both success and error responses
+      if (!response.ok || result.status === 'error') {
+        showMixingNotification(result.message || 'Failed to queue palette for mixing', 'error');
+        return;
+      }
+
+      if (result.status === 'success') {
+        // Reload the queue to show updated status
+        await loadMixingQueue();
+
+        // Start polling if not already running
+        if (!mixingPollInterval) {
+          mixingPollInterval = setInterval(async () => {
+            await loadMixingQueue();
+            const hasProcessing = mixingQueue.some(q => q.status === 'processing' || q.status === 'pending');
+            if (!hasProcessing && mixingPollInterval) {
+              clearInterval(mixingPollInterval);
+              mixingPollInterval = null;
+            }
+          }, 5000);
+        }
+
+        showMixingNotification('Palette queued for mixing! Progress will update automatically.', 'success');
+      }
+    } catch (error) {
+      console.error('Error queuing palette mixing:', error);
+      showMixingNotification('Network error. Please try again.', 'error');
+    }
+  }
+
+  function getPaletteQueueStatus(paletteId) {
+    const queueEntry = mixingQueue.find(q => q.palette_id === paletteId);
+    return queueEntry || null;
   }
 
   async function updatePreferences() {
@@ -438,6 +525,113 @@
             </div>
           </div>
         {/if}
+
+        <!-- Color Mixes Section -->
+        <div class="space-y-3 border-t border-gray-200 pt-6">
+          <button
+            onclick={() => showColorMixes = !showColorMixes}
+            class="w-full flex items-center justify-between text-xs font-medium text-gray-700 uppercase tracking-wide hover:text-gray-900 transition-colors"
+          >
+            <span>
+              <i class="fas fa-flask mr-2"></i>
+              Color Mixes
+            </span>
+            <i class="fas fa-chevron-{showColorMixes ? 'up' : 'down'} text-xs"></i>
+          </button>
+
+          {#if showColorMixes}
+            <!-- Inline Notification -->
+            {#if mixingNotification.show}
+              <div class="rounded-lg p-3 text-sm {
+                mixingNotification.type === 'success' ? 'bg-green-50 text-green-800 border border-green-200' :
+                mixingNotification.type === 'error' ? 'bg-red-50 text-red-800 border border-red-200' :
+                'bg-blue-50 text-blue-800 border border-blue-200'
+              }">
+                <div class="flex items-start">
+                  <i class="fas {
+                    mixingNotification.type === 'success' ? 'fa-check-circle' :
+                    mixingNotification.type === 'error' ? 'fa-exclamation-circle' :
+                    'fa-info-circle'
+                  } mt-0.5 mr-2"></i>
+                  <span>{mixingNotification.message}</span>
+                </div>
+              </div>
+            {/if}
+            <div class="space-y-2 pt-2">
+              <p class="text-xs text-gray-500 mb-3">
+                Calculate paint mixing formulas for your swatches. This process analyzes millions of color combinations to find the closest match.
+              </p>
+
+              {#if colorPalettes.length === 0}
+                <p class="text-xs text-gray-500 italic">No color palettes available</p>
+              {:else}
+                {#each colorPalettes as palette}
+                  {@const queueStatus = getPaletteQueueStatus(palette.id)}
+                  <div class="bg-white border border-gray-200 rounded-lg p-3 space-y-2">
+                    <div class="flex items-start justify-between">
+                      <div class="flex-1">
+                        <h4 class="text-sm font-medium text-gray-900">{palette.name}</h4>
+                        <p class="text-xs text-gray-500 capitalize">{palette.type}</p>
+                      </div>
+                      {#if queueStatus}
+                        {#if queueStatus.status === 'completed'}
+                          <span class="text-xs px-2 py-1 bg-green-100 text-green-700 rounded font-medium">
+                            <i class="fas fa-check mr-1"></i>Ready
+                          </span>
+                        {:else if queueStatus.status === 'processing'}
+                          <span class="text-xs px-2 py-1 bg-blue-100 text-blue-700 rounded font-medium">
+                            <i class="fas fa-spinner fa-spin mr-1"></i>Mixing
+                          </span>
+                        {:else if queueStatus.status === 'pending'}
+                          <span class="text-xs px-2 py-1 bg-yellow-100 text-yellow-700 rounded font-medium">
+                            <i class="fas fa-clock mr-1"></i>Queued
+                          </span>
+                        {:else if queueStatus.status === 'failed'}
+                          <span class="text-xs px-2 py-1 bg-red-100 text-red-700 rounded font-medium">
+                            <i class="fas fa-exclamation-triangle mr-1"></i>Failed
+                          </span>
+                        {/if}
+                      {/if}
+                    </div>
+
+                    {#if queueStatus && (queueStatus.status === 'processing' || queueStatus.status === 'completed')}
+                      <div class="space-y-1">
+                        <div class="flex justify-between text-xs text-gray-600">
+                          <span>Progress</span>
+                          <span>{queueStatus.swatches_processed} / {queueStatus.swatches_total}</span>
+                        </div>
+                        <div class="w-full bg-gray-200 rounded-full h-2">
+                          <div
+                            class="bg-blue-600 h-2 rounded-full transition-all duration-300"
+                            style="width: {queueStatus.swatches_total > 0 ? (queueStatus.swatches_processed / queueStatus.swatches_total) * 100 : 0}%"
+                          ></div>
+                        </div>
+                      </div>
+                    {/if}
+
+                    {#if !queueStatus || queueStatus.status === 'failed'}
+                      <button
+                        onclick={() => queuePaletteMixing(palette.id)}
+                        class="w-full text-xs px-3 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 transition-colors font-medium"
+                      >
+                        <i class="fas fa-play mr-1"></i>
+                        Mix {palette.name}
+                      </button>
+                    {:else if queueStatus.status === 'completed'}
+                      <button
+                        onclick={() => queuePaletteMixing(palette.id)}
+                        class="w-full text-xs px-3 py-2 bg-gray-100 text-gray-700 rounded hover:bg-gray-200 transition-colors font-medium"
+                      >
+                        <i class="fas fa-redo mr-1"></i>
+                        Recalculate
+                      </button>
+                    {/if}
+                  </div>
+                {/each}
+              {/if}
+            </div>
+          {/if}
+        </div>
       </div>
     </div>
   </div>
