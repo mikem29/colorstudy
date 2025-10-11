@@ -1800,6 +1800,15 @@
                 }
               };
               console.log(`Updated swatch ${index} with formula:`, result.data.formula);
+            } else if (result.status === 'not_calculated') {
+              // Mixes not calculated yet - show helpful message
+              swatchPlaceholders[index] = {
+                ...swatchPlaceholders[index],
+                data: {
+                  ...swatchPlaceholders[index].data,
+                  [paletteKey]: '✓ Enable "Calculate Mixes" checkbox'
+                }
+              };
             } else {
               console.error(`Failed to get formula for swatch ${swatch.data.id}:`, result);
               // Set as "No mix data" instead of leaving it loading

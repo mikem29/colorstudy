@@ -44,9 +44,10 @@ export const GET: RequestHandler = async ({ params, locals }) => {
 
     const palette = (paletteRows as any[])[0];
 
-    // Check if we already have this color model in the cross-reference table
+    // ONLY read from cache - never calculate on-the-fly
+    // User must enable "Calculate Mixes" on artboard for background calculation
     const [existingModels] = await connection.execute(
-      'SELECT * FROM swatch_color_models WHERE swatch_id = ? AND palette_id = ?',
+      'SELECT mix_id FROM swatch_color_models WHERE swatch_id = ? AND palette_id = ?',
       [swatchId, paletteId]
     );
 
@@ -54,33 +55,16 @@ export const GET: RequestHandler = async ({ params, locals }) => {
     let formula = null;
 
     if ((existingModels as any[]).length > 0) {
-      // We have it cached
       mixId = (existingModels as any[])[0].mix_id;
     } else {
-      // Generate on-demand by finding closest mix in THIS palette
-      // Using separate R,G,B columns for much faster integer math
-      const [mixRows] = await connection.execute(
-        `SELECT
-          pm.mix_id,
-          pm.final_rgb,
-          (POW(pm.final_r - ?, 2) + POW(pm.final_g - ?, 2) + POW(pm.final_b - ?, 2)) as distance_squared
-        FROM pigment_mixes pm
-        WHERE pm.type = 'virtual' AND pm.palette_id = ?
-        ORDER BY distance_squared ASC
-        LIMIT 1`,
-        [swatch.red, swatch.green, swatch.blue, paletteId]
-      );
-
-      if ((mixRows as any[]).length > 0) {
-        mixId = (mixRows as any[])[0].mix_id;
-
-        // Save to cross-reference table for future use
-        // Use INSERT IGNORE to handle race conditions from batched requests
-        await connection.execute(
-          'INSERT IGNORE INTO swatch_color_models (swatch_id, palette_id, mix_id) VALUES (?, ?, ?)',
-          [swatchId, paletteId, mixId]
-        );
-      }
+      // Not calculated yet - return message to enable calculation
+      return json({
+        status: 'not_calculated',
+        message: 'Enable "Calculate Mixes" on artboard to generate paint formulas',
+        swatch_id: swatchId,
+        palette_id: paletteId,
+        palette_name: palette.name
+      });
     }
 
     // If we have a mix_id, get the formula

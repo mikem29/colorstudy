@@ -22,22 +22,60 @@ export const GET: RequestHandler = async ({ url, locals }) => {
 
     const connection = await pool.getConnection();
     try {
+      // Use a bounding box to limit the search space (±50 for each RGB component)
+      const searchRadius = 50;
+      const minR = Math.max(0, r - searchRadius);
+      const maxR = Math.min(255, r + searchRadius);
+      const minG = Math.max(0, g - searchRadius);
+      const maxG = Math.min(255, g + searchRadius);
+      const minB = Math.max(0, b - searchRadius);
+      const maxB = Math.min(255, b + searchRadius);
+
       // Find closest mix using Euclidean distance in RGB space
-      const [rows] = await connection.execute(
+      // First try within the bounding box for speed
+      let [rows] = await connection.execute(
         `SELECT
           pm.mix_id,
           pm.final_rgb,
+          pm.final_r,
+          pm.final_g,
+          pm.final_b,
           SQRT(
-            POW(SUBSTRING_INDEX(pm.final_rgb, ',', 1) - ?, 2) +
-            POW(SUBSTRING_INDEX(SUBSTRING_INDEX(pm.final_rgb, ',', 2), ',', -1) - ?, 2) +
-            POW(SUBSTRING_INDEX(pm.final_rgb, ',', -1) - ?, 2)
+            POW(pm.final_r - ?, 2) +
+            POW(pm.final_g - ?, 2) +
+            POW(pm.final_b - ?, 2)
           ) as distance
         FROM pigment_mixes pm
         WHERE pm.type = 'virtual'
+          AND pm.final_r BETWEEN ? AND ?
+          AND pm.final_g BETWEEN ? AND ?
+          AND pm.final_b BETWEEN ? AND ?
         ORDER BY distance ASC
         LIMIT 1`,
-        [r, g, b]
+        [r, g, b, minR, maxR, minG, maxG, minB, maxB]
       );
+
+      // If no match found in bounding box, expand search (but still use some limits)
+      if ((rows as any[]).length === 0) {
+        [rows] = await connection.execute(
+          `SELECT
+            pm.mix_id,
+            pm.final_rgb,
+            pm.final_r,
+            pm.final_g,
+            pm.final_b,
+            SQRT(
+              POW(pm.final_r - ?, 2) +
+              POW(pm.final_g - ?, 2) +
+              POW(pm.final_b - ?, 2)
+            ) as distance
+          FROM pigment_mixes pm
+          WHERE pm.type = 'virtual'
+          ORDER BY distance ASC
+          LIMIT 1`,
+          [r, g, b]
+        );
+      }
 
       if ((rows as any[]).length === 0) {
         return json({

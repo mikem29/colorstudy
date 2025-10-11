@@ -17,17 +17,19 @@ export async function GET({ params }) {
         if (prefRows.length === 0) {
             // Create default preferences
             await connection.execute(
-                'INSERT INTO artboard_preferences (artboard_id, show_connection_lines, show_color_format_on_swatch) VALUES (?, ?, ?)',
-                [artboardId, true, true]
+                'INSERT INTO artboard_preferences (artboard_id, show_connection_lines, show_color_format_on_swatch, calculate_mixes) VALUES (?, ?, ?, ?)',
+                [artboardId, true, true, false]
             );
             preferences = {
                 show_connection_lines: true,
-                show_color_format_on_swatch: true
+                show_color_format_on_swatch: true,
+                calculate_mixes: false
             };
         } else {
             preferences = {
                 show_connection_lines: Boolean(prefRows[0].show_connection_lines),
-                show_color_format_on_swatch: Boolean(prefRows[0].show_color_format_on_swatch)
+                show_color_format_on_swatch: Boolean(prefRows[0].show_color_format_on_swatch),
+                calculate_mixes: Boolean(prefRows[0].calculate_mixes)
             };
         }
 
@@ -49,12 +51,12 @@ export async function PUT({ params, request }) {
 
     try {
         const artboardId = params.id;
-        const { show_connection_lines, show_color_format_on_swatch } = await request.json();
+        const { show_connection_lines, show_color_format_on_swatch, calculate_mixes } = await request.json();
 
         // Update preferences
         await connection.execute(
-            'INSERT INTO artboard_preferences (artboard_id, show_connection_lines, show_color_format_on_swatch) VALUES (?, ?, ?) ON DUPLICATE KEY UPDATE show_connection_lines = COALESCE(VALUES(show_connection_lines), show_connection_lines), show_color_format_on_swatch = COALESCE(VALUES(show_color_format_on_swatch), show_color_format_on_swatch), updated_at = NOW()',
-            [artboardId, show_connection_lines || false, show_color_format_on_swatch || false]
+            'INSERT INTO artboard_preferences (artboard_id, show_connection_lines, show_color_format_on_swatch, calculate_mixes) VALUES (?, ?, ?, ?) ON DUPLICATE KEY UPDATE show_connection_lines = COALESCE(VALUES(show_connection_lines), show_connection_lines), show_color_format_on_swatch = COALESCE(VALUES(show_color_format_on_swatch), show_color_format_on_swatch), calculate_mixes = COALESCE(VALUES(calculate_mixes), calculate_mixes), updated_at = NOW()',
+            [artboardId, show_connection_lines || false, show_color_format_on_swatch || false, calculate_mixes || false]
         );
 
         return json({
