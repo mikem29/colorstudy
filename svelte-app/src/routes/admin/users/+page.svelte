@@ -12,6 +12,7 @@
   let editingUser = null;
   let activeUsersCount = 0;
   let totalSessions = 0;
+  let calculatingArtboardId = null;
 
   let formData = {
     email: '',
@@ -141,6 +142,31 @@
     } catch (error) {
       console.error('Error deleting user:', error);
       alert('Failed to delete user');
+    }
+  }
+
+  async function calculateAllMixes(artboardId) {
+    if (!confirm('This will calculate paint mix formulas for all swatches. Continue?')) {
+      return;
+    }
+
+    calculatingArtboardId = artboardId;
+    try {
+      const response = await fetch(`/api/artboards/${artboardId}/calculate-mixes`, {
+        method: 'POST'
+      });
+      const result = await response.json();
+
+      if (result.status === 'started') {
+        alert(`Mix calculation started! Processing ${result.total_swatches} swatches in background.`);
+      } else {
+        alert('Failed to start calculation: ' + result.message);
+      }
+    } catch (error) {
+      console.error('Error calculating mixes:', error);
+      alert('Failed to start calculation');
+    } finally {
+      calculatingArtboardId = null;
     }
   }
 
@@ -402,7 +428,20 @@
                 <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
                   {new Date(artboard.updated_at).toLocaleDateString()}
                 </td>
-                <td class="px-6 py-4 whitespace-nowrap text-right text-sm">
+                <td class="px-6 py-4 whitespace-nowrap text-right text-sm space-x-2">
+                  <button
+                    onclick={() => calculateAllMixes(artboard.id)}
+                    disabled={calculatingArtboardId === artboard.id}
+                    class="inline-flex items-center px-3 py-1 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                    title="Calculate paint mix formulas for all swatches"
+                  >
+                    {#if calculatingArtboardId === artboard.id}
+                      <i class="fas fa-spinner fa-spin mr-2"></i>
+                    {:else}
+                      <i class="fas fa-flask mr-2"></i>
+                    {/if}
+                    Calculate Mixes
+                  </button>
                   <a
                     href="/artboard/{artboard.id}"
                     target="_blank"

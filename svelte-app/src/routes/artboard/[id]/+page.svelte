@@ -11,28 +11,24 @@
   let uploadingImage = false;
   let showConnectionLines = true;
   let showColorFormatOnSwatch = true;
-  let calculateMixes = false;
-  let calculatingMixes = false;
-  let mixCalculationProgress = 0;
-  let mixCalculationTotal = 0;
-  let mixCalculationComplete = false;
   let samplingSize = 1;
   let colorFormat = 'RGB';
   let colorPalettes = [];
   let selectedPaletteId = null;
   let selectedSwatch = null;
+  let hasMixes = false;
   let selectedSwatchIndex = -1;
   let swatchLabelInput = '';
   let saveTimeout = null;
   let generatingPDF = false;
   let artboardId = '';
-  let mixProgressInterval = null;
 
   onMount(() => {
     artboardId = $page.params.id;
     loadArtboard();
     loadPreferences();
     loadColorPalettes();
+    checkMixesAvailable();
   });
 
   async function loadPreferences() {
@@ -42,12 +38,6 @@
       if (result.status === 'success') {
         showConnectionLines = result.data.show_connection_lines;
         showColorFormatOnSwatch = result.data.show_color_format_on_swatch;
-        calculateMixes = result.data.calculate_mixes || false;
-      }
-
-      // Check if mixes are already calculated or in progress
-      if (calculateMixes) {
-        await checkMixCalculationStatus();
       }
     } catch (error) {
       console.error('Error loading preferences:', error);
@@ -70,6 +60,19 @@
     }
   }
 
+  async function checkMixesAvailable() {
+    try {
+      const response = await fetch(`/api/artboards/${artboardId}/calculate-mixes`);
+      const result = await response.json();
+      if (result.status === 'success') {
+        hasMixes = result.calculated > 0;
+      }
+    } catch (error) {
+      console.error('Error checking mixes:', error);
+      hasMixes = false;
+    }
+  }
+
   async function updatePreferences() {
     try {
       await fetch(`/api/artboards/${artboardId}/preferences`, {
@@ -77,82 +80,12 @@
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           show_connection_lines: showConnectionLines,
-          show_color_format_on_swatch: showColorFormatOnSwatch,
-          calculate_mixes: calculateMixes
+          show_color_format_on_swatch: showColorFormatOnSwatch
         })
       });
     } catch (error) {
       console.error('Error updating preferences:', error);
     }
-  }
-
-  async function handleCalculateMixesChange() {
-    // Update preferences first
-    await updatePreferences();
-
-    if (calculateMixes) {
-      // Start calculation
-      await startMixCalculation();
-    } else {
-      // Stop polling if unchecked
-      if (mixProgressInterval) {
-        clearInterval(mixProgressInterval);
-        mixProgressInterval = null;
-      }
-    }
-  }
-
-  async function startMixCalculation() {
-    try {
-      calculatingMixes = true;
-      const response = await fetch(`/api/artboards/${artboardId}/calculate-mixes`, {
-        method: 'POST'
-      });
-      const result = await response.json();
-
-      if (result.status === 'started') {
-        mixCalculationTotal = result.total_swatches;
-        // Start polling for progress
-        startProgressPolling();
-      }
-    } catch (error) {
-      console.error('Error starting mix calculation:', error);
-      calculatingMixes = false;
-    }
-  }
-
-  async function checkMixCalculationStatus() {
-    try {
-      const response = await fetch(`/api/artboards/${artboardId}/calculate-mixes`);
-      const result = await response.json();
-
-      if (result.status === 'success') {
-        mixCalculationProgress = result.calculated;
-        mixCalculationTotal = result.total_swatches;
-        mixCalculationComplete = result.is_complete;
-
-        if (!mixCalculationComplete && calculateMixes) {
-          calculatingMixes = true;
-          startProgressPolling();
-        } else if (mixCalculationComplete) {
-          calculatingMixes = false;
-          if (mixProgressInterval) {
-            clearInterval(mixProgressInterval);
-            mixProgressInterval = null;
-          }
-        }
-      }
-    } catch (error) {
-      console.error('Error checking mix calculation status:', error);
-    }
-  }
-
-  function startProgressPolling() {
-    if (mixProgressInterval) return; // Already polling
-
-    mixProgressInterval = setInterval(async () => {
-      await checkMixCalculationStatus();
-    }, 2000); // Poll every 2 seconds
   }
 
   async function loadArtboard() {
@@ -426,11 +359,13 @@
           <select bind:value={colorFormat} class="w-full px-3 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
             <option value="RGB">RGB</option>
             <option value="CMYK">CMYK</option>
-            {#each colorPalettes as palette}
-              <option value="PALETTE_{palette.id}">{palette.name}</option>
-            {/each}
+            {#if hasMixes}
+              {#each colorPalettes as palette}
+                <option value="PALETTE_{palette.id}">{palette.name}</option>
+              {/each}
+            {/if}
           </select>
-          <p class="text-xs text-gray-500">Choose color format or paint palette</p>
+          <p class="text-xs text-gray-500">Choose color format{hasMixes ? ' or paint palette' : ''}</p>
         </div>
 
         <!-- Show Connection Lines -->
@@ -458,50 +393,6 @@
             <span class="text-sm text-gray-700">Show color values on swatches</span>
           </label>
           <p class="text-xs text-gray-500">Display color format values directly on the swatches</p>
-        </div>
-
-        <!-- Calculate Paint Mix Formulas -->
-        <div class="space-y-3 border-t border-gray-200 pt-6">
-          <label class="block text-xs font-medium text-gray-700 uppercase tracking-wide">
-            <i class="fas fa-flask mr-2"></i>
-            Paint Mix Formulas
-          </label>
-          <label class="flex items-center space-x-3 cursor-pointer">
-            <input
-              type="checkbox"
-              bind:checked={calculateMixes}
-              onchange={handleCalculateMixesChange}
-              disabled={calculatingMixes}
-              class="w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 rounded focus:ring-blue-500 focus:ring-2 disabled:opacity-50"
-            />
-            <span class="text-sm text-gray-700">Calculate paint mix formulas</span>
-          </label>
-
-          {#if calculatingMixes && !mixCalculationComplete}
-            <div class="bg-blue-50 border border-blue-200 rounded-lg p-3">
-              <div class="flex items-center justify-between mb-2">
-                <span class="text-xs font-medium text-blue-900">Calculating mixes...</span>
-                <span class="text-xs text-blue-700">{mixCalculationProgress} / {mixCalculationTotal}</span>
-              </div>
-              <div class="w-full bg-blue-200 rounded-full h-2">
-                <div
-                  class="bg-blue-600 h-2 rounded-full transition-all duration-300"
-                  style="width: {mixCalculationTotal > 0 ? (mixCalculationProgress / mixCalculationTotal * 100) : 0}%"
-                ></div>
-              </div>
-            </div>
-          {:else if mixCalculationComplete && calculateMixes}
-            <div class="bg-green-50 border border-green-200 rounded-lg p-3">
-              <div class="flex items-center text-xs text-green-800">
-                <i class="fas fa-check-circle mr-2"></i>
-                <span class="font-medium">Complete! {mixCalculationTotal} formulas ready</span>
-              </div>
-            </div>
-          {/if}
-
-          <p class="text-xs text-gray-500">
-            Generate accurate paint mixing formulas for all swatches. This may take a minute for large artboards.
-          </p>
         </div>
 
         <!-- Selected Swatch Editor -->
